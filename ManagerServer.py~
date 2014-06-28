@@ -7,7 +7,7 @@ from OpCodes import OpCodes
 import socketserver
 
 
-#my DOC IS SO NAIS
+## T stands for threaded       jhgkjhkj
 class T_ManagerRequestHandler(ThreadedRequestHandler):
     from threading import RLock
         
