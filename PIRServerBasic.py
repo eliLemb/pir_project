@@ -54,17 +54,17 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
             payload = data
             self.handleMsg(recvOpcode,payload)
                 
-            try:
-                self.logger.debug('recv()->"%s"', payload)
-                cur_thread = threading.currentThread()
-                response = '%s: %s' % (cur_thread.getName(), payload)
-                    
-#                 self.lock.acquire(blocking=True)
-                self.request.send(bytes(response,"utf-8"))
-#                 self.lock.release()
-            except Exception: 
-                self.logger.debug('send failed')
-                break
+#             try:
+#                 self.logger.debug('recv()->"%s"', payload)
+#                 cur_thread = threading.currentThread()
+#                 response = '%s: %s' % (cur_thread.getName(), payload)
+#                     
+# #                 self.lock.acquire(blocking=True)
+#                 self.request.send(bytes(response,"utf-8"))
+# #                 self.lock.release()
+#             except Exception: 
+#                 self.logger.debug('send failed')
+#                 break
         return
             
     
@@ -72,6 +72,15 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         self.logger.debug('finish')
         return socketserver.BaseRequestHandler.finish(self)
 
+    def send_2_target(self,s_activeConnection):
+        try:
+            s_activeConnection.send(bytes(self.frameBuilder.getFrame()))
+        except Exception: 
+            self.logger.debug('send failed')    
+    
+    
+    
+    
         
 class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
     frameBuilder = FrameBuilder()

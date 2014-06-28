@@ -115,7 +115,7 @@ class StdServer(PIRServerBasic):
 
 
 if __name__ == '__main__':
-    port = 31105
+    port = 31109
     ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
     StdServer.activate(StdServer, 'STD_Server', ipAddress, port)
     

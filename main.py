@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
         message = input("Enter your message to the EchoServer: ")
 #         print (codes.getValue('db_length')[0])
-        frameBuilder.assembleFrame(codes.getValue('hello_ack')[0],message)
+        frameBuilder.assembleFrame(codes.getValue('server_quantity_request')[0],message)
 #         my_bytes.append(245)
 #         my_bytes.append(len(message))
 #         my_bytes.extend(str.encode(message))
