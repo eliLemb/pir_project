@@ -7,7 +7,7 @@ from OpCodes import OpCodes
 import socketserver
 
 
-#my DOC IS SO NAIS
+#my AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 class T_ManagerRequestHandler(ThreadedRequestHandler):
     from threading import RLock
         
