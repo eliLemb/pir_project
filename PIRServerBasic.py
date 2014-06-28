@@ -5,13 +5,14 @@ import socketserver
 import threading
 import socket
 from OpCodes import OpCodes
+from FrameBuilder import FrameBuilder
 
 
 
 
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
 port = 0    
-IP_CACHE = {'server1' : ['192.168.4.1',port]}
+IP_CACHE = {'server1' : ('192.168.4.1',port)}
 
 class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     from threading import RLock
@@ -73,6 +74,8 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
 
         
 class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
+    frameBuilder = FrameBuilder()
+
     def __init__(self, log_name,server_address, handler_class=ThreadedRequestHandler):
         self.logger = logging.getLogger(log_name)
         self.logger.debug('__init__')
@@ -86,7 +89,7 @@ class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
        
     def serve_forever(self):
         self.logger.debug('waiting for request')
-        self.logger.info('Handling requests, press <Ctrl-C> to quit')
+#         self.logger.info('Handling requests, press <Ctrl-C> to quit')
         while True:
             self.handle_request()
         return
@@ -96,19 +99,19 @@ class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
         return socketserver.TCPServer.handle_request(self)
        
     def verify_request(self, request, client_address):
-        self.logger.debug('verify_request(%s, %s)', request, client_address)
+#         self.logger.debug('verify_request(%s, %s)', request, client_address)
         return socketserver.TCPServer.verify_request(self, request, client_address)
     
     def process_request_thread(self, request, client_address):
-        self.logger.debug('process_request_thread(%s, %s)', request, client_address)
+#         self.logger.debug('process_request_thread(%s, %s)', request, client_address)
         return socketserver.ThreadingMixIn.process_request_thread(self, request, client_address)
  
     def finish_request(self, request, client_address):
-        self.logger.debug('finish_request(%s, %s)', request, client_address)
+#         self.logger.debug('finish_request(%s, %s)', request, client_address)
         return socketserver.TCPServer.finish_request(self, request, client_address)
          
     def close_request(self, request_address):
-        self.logger.debug('close_request(%s)', request_address)
+#         self.logger.debug('close_request(%s)', request_address)
         return socketserver.TCPServer.close_request(self, request_address)
     
     def server_close(self):

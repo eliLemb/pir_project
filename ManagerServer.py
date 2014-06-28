@@ -1,30 +1,55 @@
+import logging
+import socket
+import threading
+
+from FrameBuilder import FrameBuilder
+from OpCodes import OpCodes
 from PIRServerBasic import PIRServerBasic 
 from PIRServerBasic import ThreadedRequestHandler
-import logging
-import threading
-import socket
-from OpCodes import OpCodes
-import socketserver
 
+
+logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
+active_servers = {}
+codes = OpCodes()
 
 #T stands for threaded
 class T_ManagerRequestHandler(ThreadedRequestHandler):
     from threading import RLock
-        
+    frameBuilder = FrameBuilder()
+    
     lock = RLock()
     
     def __init__(self, request, client_address, server):
         ThreadedRequestHandler.__init__(self, request, client_address, server,'T_ManagerRequestHandler')
         return
+    ##Handle hello msg from STD_server and insert it's ip and port
+    def handleHello(self,payload):
+        serverCredential = payload.split(':')
+        insertIndex = active_servers.__len__()
+        self.lock.acquire(blocking=True)
+        active_servers[insertIndex] = (serverCredential[0],int(serverCredential[1]))
+        self.lock.release()
+        self.logger.info('STD_server was added at: %s' ,insertIndex)
+        return insertIndex
     
-##Handling msgs       
+    def replyHello(self,insertIndex,s_stdServer):
+        self.logger.debug('reply ''hello_Ack'' to %s ',s_stdServer.getsockname())
+        self.frameBuilder.assembleFrame(codes.getValue('hello_ack')[0],str(insertIndex))
+        s_stdServer.send(bytes(self.frameBuilder.getFrame())) 
+           
+    ##Handling msgs       
     def handleMsg(self,recvOpcode,msg):
         code = OpCodes.getCode(self, recvOpcode)
             
         if code == 'hello':
             self.logger.info(code)
-        elif code == 'hello_Ack':
+            cpyMsg = str(msg.decode('utf-8'))
+            insertIndex = self.handleHello(cpyMsg)
+            s_stdServer = self.connection_2_target(active_servers[insertIndex])
+            self.replyHello(insertIndex,s_stdServer)
+        elif code == 'hello_ack':
             self.logger.info (code)
+            self.logger.info (active_servers)
         elif code == 'server_quantity_request':
             self.logger.info (code)
         elif code == 'server_quantity_reply':
@@ -50,10 +75,18 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         else:
             self.logger.info("Bad opCode")
 
-
-
-
-logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
+       
+    def connection_2_target(self,tu_address):
+        self.logger.debug('creating socket connection to %s' , tu_address)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.connect(tu_address)
+            return s
+#             connectedFlag = True
+        except Exception: 
+            self.logger.debug('connection to %s failed',tu_address)        
+        
+            
 class ManagerServer(PIRServerBasic):
    
     def __init__(self, log_name, server_address, handler_class=T_ManagerRequestHandler):
