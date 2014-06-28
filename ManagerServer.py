@@ -17,7 +17,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         ThreadedRequestHandler.__init__(self, request, client_address, server,'T_ManagerRequestHandler')
         return
     
-        
+##Handling msgs       
     def handleMsg(self,recvOpcode,msg):
         code = OpCodes.getCode(self, recvOpcode)
             
