@@ -2,12 +2,14 @@ import logging
 import socket
 import threading
 import queue
+import random
 
 from FrameBuilder import FrameBuilder
 from OpCodes import OpCodes
 from PIRServerBasic import PIRServerBasic 
 from PIRServerBasic import ThreadedRequestHandler
 from threading import RLock
+from bitstring import BitArray
 
 q_freeIndexs = queue.Queue()
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
@@ -17,7 +19,7 @@ codes = OpCodes()
 #T stands for threaded
 class T_ManagerRequestHandler(ThreadedRequestHandler):
     
-    frameBuilder = FrameBuilder()
+#     frameBuilder = FrameBuilder()
     
     
     def __init__(self, request, client_address, server):
@@ -50,7 +52,16 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         self.frameBuilder.assembleFrame(codes.getValue('server_quantity_reply')[0],str(active_servers.__len__()))
            
            
-           
+    def handleDBLengthReq(self):
+        self.assamble4DBLength()
+        self.request.send(self.frameBuilder.getFrame())
+
+    def assamble4DBLength(self):        
+        bitLength = ManagerServer.b_DB._getlength()
+        self.logger.info('DB length in bits: %s.',bitLength)
+        self.logger.debug('reply ''db_length'' to %s ',self.request.getsockname())
+        self.frameBuilder.assembleFrame(codes.getValue('db_length')[0],str(bitLength))
+               
     def killThisServer(self):
         pass
 #         self.finish()
@@ -80,6 +91,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
             self.logger.info (code)
         elif code == 'db_length_request':
             self.logger.info (code)
+            self.handleDBLengthReq()
         elif code == 'query':
             self.logger.info (code)
         elif code == 'query_response':
@@ -123,6 +135,7 @@ class ManagerServer(PIRServerBasic):
         self.addServer2ActiveServers(server,tup_socket)
         t = threading.Thread(target=server.serve_forever)
         t.start()
+        self.genarateDB(self)
 
     def addServer2ActiveServers(self,serverCredential):
         insertIndex = active_servers.__len__()
@@ -131,7 +144,10 @@ class ManagerServer(PIRServerBasic):
         self.lock.release()
         self.logger.info('STD_server was added at: %s' ,insertIndex)
         return insertIndex        
-
+    
+    def genarateDB(self):
+        self.b_DB = BitArray(hex(random.getrandbits(self.dbLengthMB *self.c_MB)))
+        
 
 
 if __name__ == '__main__':

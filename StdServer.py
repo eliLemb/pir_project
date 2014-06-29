@@ -11,6 +11,7 @@ from time import sleep
 codes = OpCodes()
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
 managerServerAddresPort = ('192.168.4.1',31100)
+
 class T_StdRequestHandler(ThreadedRequestHandler):
     from threading import RLock
         

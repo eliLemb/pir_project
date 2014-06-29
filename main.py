@@ -35,17 +35,22 @@ from FrameBuilder import FrameBuilder
 from time import sleep
 from OpCodes import OpCodes
 import binascii
+import random
+from bitstring import BitArray
 
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)
 codes = OpCodes()
 
 if __name__ == "__main__":
+    logger = logging.getLogger('client')
+
+#     p_bitstring = BitArray(hex(random.getrandbits(2**20)))
+#     logger.debug('BitArray s: %s' ,p_bitstring)
     
     frameBuilder = FrameBuilder()
     ip, port = '192.168.4.1', 31100
 #     print (codes.get_code(b'242'))
 
-    logger = logging.getLogger('client')
     logger.info('Server on %s:%s', ip, port)
     
     # Connect to the server
@@ -62,7 +67,7 @@ if __name__ == "__main__":
 
         message = input("Enter your message to the EchoServer: ")
 #         print (codes.getValue('db_length')[0])
-        frameBuilder.assembleFrame(codes.getValue('server_quantity_request')[0],message)
+        frameBuilder.assembleFrame(codes.getValue('db_length_request')[0],message)
 #         my_bytes.append(245)
 #         my_bytes.append(len(message))
 #         my_bytes.extend(str.encode(message))
