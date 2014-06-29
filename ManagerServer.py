@@ -1,23 +1,24 @@
 import logging
 import socket
 import threading
+import queue
 
 from FrameBuilder import FrameBuilder
 from OpCodes import OpCodes
 from PIRServerBasic import PIRServerBasic 
 from PIRServerBasic import ThreadedRequestHandler
+from threading import RLock
 
-
+q_freeIndexs = queue.Queue()
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
 active_servers = {}
 codes = OpCodes()
 
 #T stands for threaded
 class T_ManagerRequestHandler(ThreadedRequestHandler):
-    from threading import RLock
+    
     frameBuilder = FrameBuilder()
     
-    lock = RLock()
     
     def __init__(self, request, client_address, server):
         ThreadedRequestHandler.__init__(self, request, client_address, server,'T_ManagerRequestHandler')
@@ -27,11 +28,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
     def handleHello(self,payload):
         modifiedPayload = payload.decode('utf-8')
         serverCredential = modifiedPayload.split(':')
-        insertIndex = active_servers.__len__()
-        self.lock.acquire(blocking=True)
-        active_servers[insertIndex] = (serverCredential[0],int(serverCredential[1]))
-        self.lock.release()
-        self.logger.info('STD_server was added at: %s' ,insertIndex)
+        insertIndex = ManagerServer.addServer2ActiveServers(self.server,serverCredential)
         s_stdServer = self.connection_2_target(active_servers[insertIndex])
         self.assamble4ReplyHello(insertIndex,s_stdServer)
         self.send_2_target(s_stdServer)
@@ -49,11 +46,16 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
     
     def assamble4ServerQuantity(self):
         self.logger.debug('reply ''server_quantity_request'' to %s ',self.request.getsockname())
+        self.logger.info('Current servers count %s',active_servers.__len__())
         self.frameBuilder.assembleFrame(codes.getValue('server_quantity_reply')[0],str(active_servers.__len__()))
            
            
            
-           
+    def killThisServer(self):
+        pass
+#         self.finish()
+#         self.server.server_close()
+        
            
            
     ##Handling messages       
@@ -82,12 +84,13 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
             self.logger.info (code)
         elif code == 'query_response':
             self.logger.info (code)
-        elif code == 'terminate':
-            self.logger.info (code)
         elif code == 'ipAndPortRequest':
             self.logger.info (code)
         elif code == 'ipAndPortReply':
             self.logger.info (code)
+        elif code == 'terminate':
+            self.logger.info (code)
+            self.killThisServer()
         else:
             self.logger.info("Bad opCode")
 
@@ -106,7 +109,8 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         
         
 class ManagerServer(PIRServerBasic):
-   
+    lock = RLock()
+
     def __init__(self, log_name, server_address, handler_class=T_ManagerRequestHandler):
         return PIRServerBasic.__init__(self, log_name, server_address, handler_class=handler_class)
 
@@ -116,10 +120,17 @@ class ManagerServer(PIRServerBasic):
         tup_socket = (ipAddress, port) # let the kernel give us a port, tuple of the address and port
         server = ManagerServer(name,tup_socket, T_ManagerRequestHandler)
         PIRServerBasic.activate(self,name, ipAddress, port, server)
+        self.addServer2ActiveServers(server,tup_socket)
         t = threading.Thread(target=server.serve_forever)
         t.start()
 
-
+    def addServer2ActiveServers(self,serverCredential):
+        insertIndex = active_servers.__len__()
+        self.lock.acquire(blocking=True)
+        active_servers[insertIndex] = (serverCredential[0],int(serverCredential[1]))
+        self.lock.release()
+        self.logger.info('STD_server was added at: %s' ,insertIndex)
+        return insertIndex        
 
 
 

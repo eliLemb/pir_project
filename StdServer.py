@@ -4,7 +4,8 @@ import logging
 import threading
 import socket
 from OpCodes import OpCodes
-
+import atexit
+from time import sleep
 
 
 codes = OpCodes()
@@ -86,6 +87,7 @@ class StdServer(PIRServerBasic):
 #         logger.info("running at %s listens to port: %s ", ipAddress,port)
         tup_socket = (ipAddress, port) # let the kernel give us a port, tuple of the address and port
         server = StdServer(name,tup_socket, T_StdRequestHandler)
+#         atexit.register(self.die,self)
         PIRServerBasic.activate(self,name, ipAddress, port, server)
         t = threading.Thread(target=server.serve_forever)
         t.start()
@@ -105,15 +107,20 @@ class StdServer(PIRServerBasic):
         self.logger.debug(self.selfIPAddress)
         self.frameBuilder.assembleFrame(codes.getValue('hello')[0], self.selfIPAddress + ":" + str(self.selfPort))
         self.logger.debug('sending ''hello'' to Manager_Server')
-        
         s_openToManager.send(bytes(self.frameBuilder.getFrame()))
 #         while True:
 
 #             s_openToManager.recv()        
 #         T_StdRequestHandler.handle(self)
         
-
-
+    def die(self):
+#         raise Exception("Oopsy")
+        self.logger.debug('EXIT')
+        s_openToManager = self.connection_2_Manager(managerServerAddresPort)
+        self.frameBuilder.assembleFrame(codes.getValue('hello')[0], '0' + ":" + '0')
+        self.logger.debug('sending ''servers_failed'' to Manager_Server')
+        s_openToManager.send(bytes(self.frameBuilder.getFrame()))
+    
 if __name__ == '__main__':
     port = 31109
     ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]

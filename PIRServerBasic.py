@@ -23,6 +23,7 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         self.logger = logging.getLogger(name)
         self.logger.debug('__init__')
         self.logger.debug('Client %s Connected' ,client_address)
+        self.server = server
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
         return
     
