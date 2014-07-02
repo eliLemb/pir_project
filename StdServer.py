@@ -8,9 +8,9 @@ import atexit
 from time import sleep
 
 
+
 codes = OpCodes()
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
-managerServerAddresPort = ('192.168.4.1',31100)
 
 class T_StdRequestHandler(ThreadedRequestHandler):
     from threading import RLock
@@ -18,8 +18,7 @@ class T_StdRequestHandler(ThreadedRequestHandler):
     lock = RLock()
     
     def __init__(self, request, client_address, server):
-        ThreadedRequestHandler.__init__(self, request, client_address, server,'T_StdRequestHandler')
-        return
+        return ThreadedRequestHandler.__init__(self, request, client_address, server,'T_StdRequestHandler')
 #     
 #     def setup(self):
 #         socketserver.BaseRequestHandler.setup(self)
@@ -63,25 +62,15 @@ class T_StdRequestHandler(ThreadedRequestHandler):
 
 
 class StdServer(PIRServerBasic):
-
+    managerServerAddresPort = ('192.168.4.1',31100)
+    
     def __init__(self, log_name, server_address, handler_class=T_StdRequestHandler):
         self.selfIPAddress = server_address[0]
         self.selfPort = server_address[1]
         return PIRServerBasic.__init__(self, log_name, server_address, handler_class=handler_class)
     
     def server_activate(self):
-        PIRServerBasic.server_activate(self)
-        s_openToManager = self.connection_2_Manager(managerServerAddresPort)
-        if s_openToManager != None:
-            t = threading.Thread(target=self.send_hello_2_manager(s_openToManager))
-            t.start()
-             
-        else:
-            self.logger.info('connection to Manager Server failed')
-            self.shutdown()
-#         tupSocket = ('192.168.4.1', 31100)
-#         self.connection2Manager(tupSocket)
-        return 
+        return PIRServerBasic.server_activate(self) 
     
     def activate(self, name, ipAddress, port):
 #         logger = logging.getLogger(name)
@@ -92,18 +81,36 @@ class StdServer(PIRServerBasic):
         PIRServerBasic.activate(self,name, ipAddress, port, server)
         t = threading.Thread(target=server.serve_forever)
         t.start()
+        t_KeepAlive = threading.Thread(target = server.KeepAliveSendHello)
+        t_KeepAlive.start()
         
-    def connection_2_Manager(self,tu_address):
+        
+    def KeepAliveSendHello(self):
+        attempts = 0
+        while attempts<3:
+            s_openToManager = self.connection_2_Manager()
+            if s_openToManager != None:
+                self.send_hello_2_manager(s_openToManager)
+                sleep(StdServer.HELLO_INTERVAL)
+            else:
+                self.logger.info('connection to Manager Server failed')
+                self.logger.info('Attempt: %s ',attempts+1)
+                attempts = attempts +1
+                sleep(StdServer.HELLO_INTERVAL * 3)
+#                 self.server_close()
+#                 break
+    
+    
+    def connection_2_Manager(self):
         self.logger.debug('creating socket connection to Manager_Server')
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            s.connect(tu_address)
+            s.connect(self.managerServerAddresPort)
             return s
 #             connectedFlag = True
         except Exception: 
-            self.logger.debug('connection failed')        
-        
-        
+            self.logger.debug('connection failed') 
+            
     def send_hello_2_manager(self,s_openToManager):
         self.logger.debug(self.selfIPAddress)
         self.frameBuilder.assembleFrame(codes.getValue('hello')[0], self.selfIPAddress + ":" + str(self.selfPort))
@@ -117,13 +124,15 @@ class StdServer(PIRServerBasic):
     def die(self):
 #         raise Exception("Oopsy")
         self.logger.debug('EXIT')
-        s_openToManager = self.connection_2_Manager(managerServerAddresPort)
+        s_openToManager = self.connection_2_Manager(self.managerServerAddresPort)
         self.frameBuilder.assembleFrame(codes.getValue('hello')[0], '0' + ":" + '0')
         self.logger.debug('sending ''servers_failed'' to Manager_Server')
         s_openToManager.send(bytes(self.frameBuilder.getFrame()))
+
+
     
 if __name__ == '__main__':
-    port = 31109
+    port = 31104
     ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
     StdServer.activate(StdServer, 'STD_Server', ipAddress, port)
     

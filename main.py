@@ -44,11 +44,18 @@ codes = OpCodes()
 if __name__ == "__main__":
     logger = logging.getLogger('client')
 
+    s_c = ('123',344)
+    a_s = {1: ('123',344)}
+    whatreturned = [ k for k, element in a_s.items() if element == s_c]
+    print(whatreturned)
+
+
+
 #     p_bitstring = BitArray(hex(random.getrandbits(2**20)))
 #     logger.debug('BitArray s: %s' ,p_bitstring)
     
     frameBuilder = FrameBuilder()
-    ip, port = '192.168.4.1', 31100
+    ip, port = '192.168.4.1', 31109
 #     print (codes.get_code(b'242'))
 
     logger.info('Server on %s:%s', ip, port)
@@ -67,7 +74,7 @@ if __name__ == "__main__":
 
         message = input("Enter your message to the EchoServer: ")
 #         print (codes.getValue('db_length')[0])
-        frameBuilder.assembleFrame(codes.getValue('db_length_request')[0],message)
+        frameBuilder.assembleFrame(codes.getValue('hello')[0],message)
 #         my_bytes.append(245)
 #         my_bytes.append(len(message))
 #         my_bytes.extend(str.encode(message))

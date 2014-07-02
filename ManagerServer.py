@@ -32,9 +32,13 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         serverCredential = modifiedPayload.split(':')
         insertIndex = ManagerServer.addServer2ActiveServers(self.server,serverCredential)
         s_stdServer = self.connection_2_target(active_servers[insertIndex])
-        self.assamble4ReplyHello(insertIndex,s_stdServer)
-        self.send_2_target(s_stdServer)
-        return insertIndex
+    
+        if s_stdServer != None:
+            self.assamble4ReplyHello(insertIndex,s_stdServer)
+            self.send_2_target(s_stdServer)
+            return insertIndex
+        else:
+            return -1
     
     def assamble4ReplyHello(self,insertIndex,s_stdServer):
         self.logger.debug('reply ''hello_Ack'' to %s ',s_stdServer.getsockname())
@@ -138,17 +142,33 @@ class ManagerServer(PIRServerBasic):
         self.genarateDB(self)
 
     def addServer2ActiveServers(self,serverCredential):
-        insertIndex = active_servers.__len__()
+        tup_serverCredential = serverCredential[0],int(serverCredential[1])
         self.lock.acquire(blocking=True)
-        active_servers[insertIndex] = (serverCredential[0],int(serverCredential[1]))
+        insertIndex = self.ifServerRegistered(tup_serverCredential)
+#         insertIndex = active_servers.__len__()
+        active_servers[insertIndex] = tup_serverCredential
         self.lock.release()
-        self.logger.info('STD_server was added at: %s' ,insertIndex)
+        self.logger.info('server was added at: %s' ,insertIndex)
         return insertIndex        
+    
+    
+    def ifServerRegistered(self,serverCredential):
+        try:
+            insertIndex =  [ k for k, element in active_servers.items() if element == serverCredential]
+            if not insertIndex:
+                if q_freeIndexs.empty():
+                    return active_servers.__len__()
+                else:
+                    return q_freeIndexs.get_nowait()
+            else:
+                return insertIndex[0]
+        except Exception:
+            return 
     
     def genarateDB(self):
         self.b_DB = BitArray(hex(random.getrandbits(self.dbLengthMB *self.c_MB)))
         
-
+        
 
 if __name__ == '__main__':
     #     import threading

@@ -10,13 +10,13 @@ from bitstring import BitArray
 
 
 
-logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
 port = 0    
 IP_CACHE = {'server1' : ('192.168.4.1',port)}
 class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     from threading import RLock
     frameBuilder = FrameBuilder()
-    
+    logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
+
     lock = RLock()
     
     def __init__(self, request, client_address, server, name):
@@ -84,10 +84,13 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     
         
 class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
+    HELLO_INTERVAL = 20
     frameBuilder = FrameBuilder()
     dbLengthMB = 1
     b_DB = BitArray()
     c_MB = 2**20
+    logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
+
     def __init__(self, log_name,server_address, handler_class=ThreadedRequestHandler):
         self.logger = logging.getLogger(log_name)
         self.logger.debug('__init__')

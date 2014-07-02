@@ -7,7 +7,7 @@ class OpCodes(object):
 
     
     
-    ##Find in the opCodes a code description by it's code     
+    ##Find in the opCodes a code description by it's key     
     def getCode(self,codeToFind):
         try:
             return codes[codeToFind]
