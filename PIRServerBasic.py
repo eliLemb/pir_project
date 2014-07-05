@@ -85,6 +85,7 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         
 class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
     HELLO_INTERVAL = 20
+    TIME_TO_LIVE = 45
     frameBuilder = FrameBuilder()
     dbLengthMB = 1
     b_DB = BitArray()

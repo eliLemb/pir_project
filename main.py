@@ -37,17 +37,24 @@ from OpCodes import OpCodes
 import binascii
 import random
 from bitstring import BitArray
+import time
 
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)
 codes = OpCodes()
 
 if __name__ == "__main__":
     logger = logging.getLogger('client')
-
+    
+#     while True:
+#         sleep(1)
+#         print(int(time.time()%1000000))
+#     
+#     
     s_c = ('123',344)
-    a_s = {1: ('123',344)}
+    a_s = {1: ('123',344),2:('345',1254667)}
     whatreturned = [ k for k, element in a_s.items() if element == s_c]
-    print(whatreturned)
+    for key, element in a_s.items():  
+        print(key,element)
 
 
 
@@ -55,7 +62,7 @@ if __name__ == "__main__":
 #     logger.debug('BitArray s: %s' ,p_bitstring)
     
     frameBuilder = FrameBuilder()
-    ip, port = '192.168.4.1', 31109
+    ip, port = '192.168.4.1', 31100
 #     print (codes.get_code(b'242'))
 
     logger.info('Server on %s:%s', ip, port)
