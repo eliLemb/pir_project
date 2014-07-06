@@ -18,10 +18,12 @@ from PIRServerBasic import ThreadedRequestHandler
 from threading import RLock
 from bitstring import BitArray
 from StdServer import StdServer
+import socketserver
 
 q_freeIndexs = queue.Queue()
 # logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
 active_servers = {}
+active_client = {}
 codes = OpCodes()
 WELCOME_PORT = 31100    
 
@@ -30,18 +32,52 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
     
 #     frameBuilder = FrameBuilder()
     
-    
+    b_isServerConnected=False
     def __init__(self, request, client_address, server):
-        ThreadedRequestHandler.__init__(self, request, client_address, server,'T_ManagerRequestHandler')
-        return
+        return ThreadedRequestHandler.__init__(self, request, client_address, server,'T_ManagerRequestHandler')
+        
+    
+    
+    
+    
+    def handle(self):
+        self.logger.debug('handle')
+        while True:
+        # Echo the back to the client
+            try:
+                data = self.request.recv(2)
+                if data == '' or len(data) == 0:
+                    break
+            except Exception: 
+                self.logger.debug('recv failed')
+                if (self.b_isServerConnected == True):
+                    appWindownManager.removeConnectedServerIcon()
+                break
+            #Got data Successfully
+            recvOpcode = data[0] #first byte is op code
+            size = data[1]
+            try:
+                data = self.request.recv(size)
+                if data == '' or len(data) == 0:
+                    break
+            except Exception: 
+                self.logger.debug('recv data failed')
+                break
+            self.handleMsg(recvOpcode,data)                
+        return    
+    
+    
+    
+    
     
     ##Handle hello msg from STD_server and insert it's ip and port
     def handleHello(self,payload):
+        self.b_isServerConnected = True
         modifiedPayload = payload.decode('utf-8')
         serverCredential = modifiedPayload.split(':')
-        insertIndex = ManagerServer.addServer2ActiveServers(self.server,serverCredential)
+        insertIndex = self.server.addServer2ActiveServers(serverCredential)
         s_stdServer = self.connection_2_target((active_servers[insertIndex][0],active_servers[insertIndex][1]))
-    
+        appWindownManager.addConnectedServerIcon(insertIndex)
         if s_stdServer != None:
             self.assamble4ReplyHello(insertIndex,s_stdServer)
             self.send_2_target(s_stdServer)
@@ -54,11 +90,19 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         self.frameBuilder.assembleFrame(codes.getValue('hello_ack')[0],str(insertIndex))
 #         s_stdServer.send(bytes(self.frameBuilder.getFrame())) 
    
-    
+    def handleClientConnection(self):
+        self.server.addClient(self.client_address)
+        appWindownManager.clientOnline()
+        try:
+            self.request.recv(1)
+        except Exception: 
+            self.logger.debug('Client disconnected')
+            appWindownManager.clientOffline()
+        
     def handleServerQuantity(self):
         self.assamble4ServerQuantity()
         self.request.send(self.frameBuilder.getFrame())
-    
+        
     def assamble4ServerQuantity(self):
         self.logger.debug('reply ''server_quantity_request'' to %s ',self.request.getsockname())
         self.logger.info('Current servers count %s',active_servers.__len__())
@@ -116,6 +160,9 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         elif code == 'terminate':
             self.logger.info (code)
             self.killThisServer()
+        elif code == 'clientHello':
+            self.logger.info (code)
+            self.handleClientConnection()
         else:
             self.logger.info("Bad opCode")
 
@@ -152,12 +199,11 @@ class ManagerServer(PIRServerBasic):
         self.addServer2ActiveServers(self.tup_socket)
         t_managerServer = threading.Thread(target=self.serve_forever)
         t_cleanDeadServers = threading.Thread(target = self.check4DeadServer)
+        self.genarateDB()
+        appWindownManager.disableBtnStartServer()
+        appWindownManager.enableBtnStopServer()
         t_managerServer.start()
         t_cleanDeadServers.start()
-        self.genarateDB()
-        pir_app.disableBtnStartServer()
-        pir_app.enableBtnStopServer()
-
 
     def addServer2ActiveServers(self,serverCredential):
         tup_serverCredential = serverCredential[0],int(serverCredential[1])
@@ -199,13 +245,20 @@ class ManagerServer(PIRServerBasic):
             for keys in self.toCleanIndex:
                 active_servers.pop(keys)
                 q_freeIndexs.put_nowait(keys)
+#                 appWindownManager.removeConnectedServerIcon()
                 self.logger.info('server %s was removed and its index will be recycled' ,keys)        
             self.lock.release()
             self.toCleanIndex.clear()        
     
+    
+    def addClient(self,clientAddres):
+        self.lock.acquire(blocking=True)
+        active_client[active_client.__len__()] = (clientAddres,int(time.time()%1000000))
+        self.lock.release()
+        
     def shutdown(self):
-        pir_app.disableBtnStopServer()
-        pir_app.enableBtnStartServer()
+        appWindownManager.disableBtnStopServer()
+        appWindownManager.enableBtnStartServer()
         return PIRServerBasic.shutdown(self)
    
     def genarateDB(self):
@@ -219,9 +272,11 @@ class SM_window(Frame):
         self.myParent = parent 
         self.myParent.title('PIR Manager Server')
         ### Our topmost frame is called myContainer1
-        self.masterFrame = ttk.Frame(self.myParent,padding=(10,10,12,12)) ###
+        self.masterFrame = ttk.Frame(self.myParent,padding=(0,10,0,5)) ###
         self.masterFrame.grid(column=0, row=0, sticky=(N, S, E, W))
-
+        self.l_serversConectedIcons=[]
+        
+        self.rowCounter = 1
         #------ constants for controlling layout ------
         button_width = 12      ### (1)
         button_height = 3
@@ -264,9 +319,10 @@ class SM_window(Frame):
         self.icn_write = PhotoImage(file="icons/Document.png")
         self.icn_exit = PhotoImage(file="icons/exit.png")
 
-        self.icn_serverConnected = PhotoImage(file="icons/Computer-Network.png")
+        self.icn_serverConnected = PhotoImage(file="icons/Computer24.png")
         self.icn_userOnline = PhotoImage(file="icons/UserOnline.png")
         self.icn_userOffline = PhotoImage(file="icons/UserOffline.png")
+        
         
         ### Now we will put two more frames, left_frame and right_frame,
         ### inside top_frame.  We will use HORIZONTAL (left/right)
@@ -288,7 +344,7 @@ class SM_window(Frame):
         self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.button1Click, image=self.icn_write, style='TButton', text="Write DB to File ",width=button_width )
         self.btn_write.grid(row=3,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
-        self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.button1Click, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
+        self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
         self.btn_exit.grid(row=4,column=1, columnspan=5, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
         self.txt_scrolledConsole = ScrolledText(self.masterFrame, wrap=WORD, undo=True, setgrid=True)
@@ -299,7 +355,7 @@ class SM_window(Frame):
 #         self.right_frame.pack(side=RIGHT,anchor=E)  ###
 
         self.sp_bottom = ttk.Separator(self.masterFrame,orient=HORIZONTAL)
-        self.sp_bottom.grid(row=5 ,columnspan=11, pady=5, sticky=(E, W))
+        self.sp_bottom.grid(row=5,column=0 ,columnspan=11, pady=5, sticky=(E, W))
         # now we add the buttons to the buttons_frame    
 #         self.button1 = Button(self.masterFrame, command=self.button1Click,text="OK",width=button_width)
 #         self.button1.configure(text="OK")
@@ -316,8 +372,11 @@ class SM_window(Frame):
         
         self.lbl_userSts = Label(self.masterFrame, image=self.icn_userOffline)
         self.lbl_userSts.grid(row=6, column=6, sticky=(E))
-        
         self.disableBtnStopServer()
+#         self.addConnectedServerIcon(1)
+#         self.addConnectedServerIcon(2)
+#         self.addConnectedServerIcon(3)
+#         self.addConnectedServerIcon(4)
 
     def startUp(self):
 #         ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
@@ -327,6 +386,14 @@ class SM_window(Frame):
     def stopServer(self):
         self.o_serverManager.shutdown()
     
+    def addConnectedServerIcon(self,position):
+        lbl_serverConnected = Label(self.masterFrame, image=self.icn_serverConnected)
+        lbl_serverConnected.grid(row=6, column=position, sticky=(S))
+#         self.rowCounter = self.rowCounter+1
+        self.l_serversConectedIcons.append(lbl_serverConnected)
+    
+    def removeConnectedServerIcon(self):
+        self.l_serversConectedIcons.pop().destroy()
     
     def enableBtnStopServer(self):
         self.btn_stopServer.state(["!disabled"])   # Disable the stop button.
@@ -339,14 +406,21 @@ class SM_window(Frame):
         
     def disableBtnStartServer(self):
         self.btn_startServer.state(["disabled"])   # Disable the stop button.
-        
+    
+    def clientOnline(self):
+        self.lbl_userSts.config(image=self.icn_userOnline)
+    
+    def clientOffline(self):
+        self.lbl_userSts.config(image=self.icn_userOffline)
+    
     def button1Click(self):      
         if self.button1["background"] == "green":  
             self.button1["background"] = "yellow"
         else:
             self.button1["background"] = "green"
     
-    def button2Click(self): 
+    def clickExit(self): 
+        self.o_serverManager.shutdown()
         self.myParent.destroy()     
         
     def button1Click_a(self, event):  
@@ -483,7 +557,7 @@ if __name__ == '__main__':
 #     app = SM_window(root)
 #     root.mainloop()  
     root = Tk()
-    pir_app = SM_window(root)
+    appWindownManager = SM_window(root)
     root.mainloop()
     
     

@@ -11,7 +11,7 @@ from bitstring import BitArray
 
 
 port = 0    
-IP_CACHE = {'server1' : ('192.168.4.1',port)}
+# IP_CACHE = {'server1' : ('192.168.4.1',port)}
 class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     from threading import RLock
     frameBuilder = FrameBuilder()

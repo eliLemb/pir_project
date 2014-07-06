@@ -1,4 +1,4 @@
-codes = {234 : 'hello', 235 : 'hello_ack', 236 : 'server_quantity_request' , 237 : 'server_quantity_reply' , 238 : 'servers_up' , 239 : 'servers_faild',  240 : 'db_length' , 241 : 'db_length_request' ,  242 : 'query' , 243 : 'query_response' ,  244 : 'terminate' , 245 : 'ipAndPortRequest' ,  246 : 'ipAndPortReply' }
+codes = {234 : 'hello', 235 : 'hello_ack', 236 : 'server_quantity_request' , 237 : 'server_quantity_reply' , 238 : 'servers_up' , 239 : 'servers_faild',  240 : 'db_length' , 241 : 'db_length_request' ,  242 : 'query' , 243 : 'query_response' ,  244 : 'terminate' , 245 : 'ipAndPortRequest' ,  246 : 'ipAndPortReply',  247 : 'clientHello' }
  
 class OpCodes(object):
     '''
