@@ -10,7 +10,7 @@ from time import sleep
 
 
 codes = OpCodes()
-logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
+# logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
 
 class T_StdRequestHandler(ThreadedRequestHandler):
     from threading import RLock
@@ -78,7 +78,7 @@ class StdServer(PIRServerBasic):
         tup_socket = (ipAddress, port) # let the kernel give us a port, tuple of the address and port
         server = StdServer(name,tup_socket, T_StdRequestHandler)
 #         atexit.register(self.die,self)
-        PIRServerBasic.activate(self,name, ipAddress, port, server)
+        PIRServerBasic.activate(self,name, ipAddress, port)
         t = threading.Thread(target=server.serve_forever)
         t.start()
         t_KeepAlive = threading.Thread(target = server.KeepAliveSendHello)

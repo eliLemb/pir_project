@@ -133,10 +133,14 @@ class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
     def server_close(self):
         self.logger.debug('server_close')
         return socketserver.TCPServer.server_close(self)
+     
+    def shutdown(self):
+        self.logger.debug('server_shutdown')
+        return socketserver.TCPServer.shutdown(self)
     
-    def activate(self,name,ipAddress,port,server):
-        server.logger = logging.getLogger(name)
-        server.logger.info("running at %s listens to port: %s ", ipAddress,port)
+    def activate(self,name,ipAddress,port):
+        self.logger = logging.getLogger(name)
+        self.logger.info("running at %s listens to port: %s ", ipAddress,port)
 #         tup_socket = (ipAddress, port) # let the kernel give us a port, tuple of the address and port
 #         server = PIRServerBasic('STD_PirServer',tup_socket, ThreadedRequestHandler)
 #         t = threading.Thread(target=server.serve_forever)
