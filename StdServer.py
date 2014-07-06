@@ -1,5 +1,9 @@
 from PIRServerBasic import PIRServerBasic
 from PIRServerBasic import ThreadedRequestHandler
+from tkinter import *
+from tkinter import ttk
+from tkinter.scrolledtext import *
+
 import logging
 import threading
 import socket
@@ -63,26 +67,36 @@ class T_StdRequestHandler(ThreadedRequestHandler):
 
 class StdServer(PIRServerBasic):
     managerServerAddresPort = ('192.168.4.1',31100)
-    
-    def __init__(self, log_name, server_address, handler_class=T_StdRequestHandler):
-        self.selfIPAddress = server_address[0]
-        self.selfPort = server_address[1]
-        return PIRServerBasic.__init__(self, log_name, server_address, handler_class=handler_class)
+    WELCOME_PORT = 31101    
+
+    def __init__(self, log_name, handler_class=T_StdRequestHandler):
+        self.selfIPAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        self.tup_socket = (self.selfIPAddress, self.WELCOME_PORT) # let the kernel give us a port, tuple of the address and port
+#         self.selfIPAddress = server_address[0]
+#         self.selfPort = server_address[1]
+        self.log_name = log_name
+        return PIRServerBasic.__init__(self, log_name, self.tup_socket, handler_class=handler_class)
     
     def server_activate(self):
         return PIRServerBasic.server_activate(self) 
     
-    def activate(self, name, ipAddress, port):
+    def activate(self):
 #         logger = logging.getLogger(name)
 #         logger.info("running at %s listens to port: %s ", ipAddress,port)
-        tup_socket = (ipAddress, port) # let the kernel give us a port, tuple of the address and port
-        server = StdServer(name,tup_socket, T_StdRequestHandler)
+#         tup_socket = (ipAddress, port) # let the kernel give us a port, tuple of the address and port
+        
+#         server = StdServer(self.log_name,self.tup_socket, T_StdRequestHandler)
 #         atexit.register(self.die,self)
-        PIRServerBasic.activate(self,name, ipAddress, port)
-        t = threading.Thread(target=server.serve_forever)
+        
+
+#         PIRServerBasic.activate(self,name, ipAddress, port)
+        super(StdServer,self).activate(self.log_name, self.tup_socket[0], self.tup_socket[1])
+        t = threading.Thread(target=self.serve_forever)
+        t_KeepAlive = threading.Thread(target = self.KeepAliveSendHello)
         t.start()
-        t_KeepAlive = threading.Thread(target = server.KeepAliveSendHello)
         t_KeepAlive.start()
+        appWindownManager.disableBtnStartServer()
+        appWindownManager.enableBtnStopServer()
         
         
     def KeepAliveSendHello(self):
@@ -113,7 +127,7 @@ class StdServer(PIRServerBasic):
             
     def send_hello_2_manager(self,s_openToManager):
         self.logger.debug(self.selfIPAddress)
-        self.frameBuilder.assembleFrame(codes.getValue('hello')[0], self.selfIPAddress + ":" + str(self.selfPort))
+        self.frameBuilder.assembleFrame(codes.getValue('hello')[0], self.selfIPAddress + ":" + str(self.WELCOME_PORT))
         self.logger.debug('sending ''hello'' to Manager_Server')
         s_openToManager.send(bytes(self.frameBuilder.getFrame()))
 #         while True:
@@ -130,9 +144,187 @@ class StdServer(PIRServerBasic):
         s_openToManager.send(bytes(self.frameBuilder.getFrame()))
 
 
+
+
+
+class STD_window(Frame):
+    o_serverManager=None
+    def __init__(self, parent):
+        self.myParent = parent 
+        self.myParent.title('Standard Server')
+        ### Our topmost frame is called myContainer1
+        self.masterFrame = ttk.Frame(self.myParent,padding=(0,10,0,5)) ###
+        self.masterFrame.grid(column=0, row=0, sticky=(N, S, E, W))
+        self.l_serversConectedIcons=[]
+        
+        self.rowCounter = 1
+        #------ constants for controlling layout ------
+        button_width = 12      ### (1)
+        button_height = 3
+        
+        button_padx = "2"    ### (2)
+        button_pady = "1"    ### (2)
+
+        buttons_frame_padx =  "3"   ### (3)
+        buttons_frame_pady =  "2"   ### (3)        
+        buttons_frame_ipadx = "3"   ### (3)
+        buttons_frame_ipady = "1"   ### (3)
+        # -------------- end constants ----------------
+
+        ### We will use VERTICAL (top/bottom) orientation inside myContainer1.
+        ### Inside myContainer1, first we create buttons_frame.
+        ### Then we create top_frame and bottom_frame.
+        ### These will be our demonstration frames.         
+#         self.label = Label(self.myContainer1, text="Welcome")
+#         self.label.pack(side=TOP,anchor='n')
+#         # buttons frame
+#         self.buttons_frame = Frame(self.myContainer1) ###
+#         self.buttons_frame.pack(fill=X,anchor=S,side=BOTTOM)    
+#         self.buttons_frame.columnconfigure(0,weight=2)
+        # top frame
+#         self.top_frame = Frame(self.myContainer1) 
+#         self.top_frame.pack(side=TOP,anchor=N)  ###
+        
+        # bottom frame
+#         self.bottom_frame = Frame(self.myContainer1) ###   
+#         self.bottom_frame.grid()  ###
+        
+        
+        
+        self.style = ttk.Style(self.myParent)
+        self.style.configure('TButton', font=("Arial", 12,'bold'))#larger Font for buttons
+        self.style.configure('TCombobox', font=("Arial", 12,'bold'))#larger Font for buttons
+        
+        self.icn_startServer = PhotoImage(file="icons/TurnOn.png")
+        self.icn_stopServer = PhotoImage(file="icons/TurnOff.png")
+        self.icn_query = PhotoImage(file="icons/question2.png")
+        self.icn_write = PhotoImage(file="icons/Document.png")
+        self.icn_exit = PhotoImage(file="icons/exit.png")
+
+        self.icn_serverConnected = PhotoImage(file="icons/Computer24.png")
+        self.icn_userOnline = PhotoImage(file="icons/UserOnline.png")
+        self.icn_userOffline = PhotoImage(file="icons/UserOffline.png")
+        
+        
+        ### Now we will put two more frames, left_frame and right_frame,
+        ### inside top_frame.  We will use HORIZONTAL (left/right)
+        ### orientation within top_frame.
+        
+        # left_frame        
+#         self.left_frame = Frame(self.top_frame) ###
+#         self.left_frame.pack(side=LEFT,anchor=W,fill=Y)  ###
+        
+        self.cb_listenPort = ttk.Combobox(self.masterFrame, textvariable=StdServer.WELCOME_PORT, style='TCombobox')
+        self.cb_listenPort.bind('<<ComboboxSelected>>', self.updateWelcomePort)
+        self.cb_listenPort['values'] = ('31101', '31102', '31103', '31104', '31105', '31106', '31107', '31108', '31109', '31110')
+        self.cb_listenPort.set('31101')
+        self.cb_listenPort.grid(row=0,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        
+        
+        self.btn_startServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.startUp, image=self.icn_startServer, style='TButton', text="Start Server ",width=button_width )
+        self.btn_startServer.grid(row=1,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
+        
+        self.btn_stopServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.stopServer, image=self.icn_stopServer, style='TButton', text="Stop Server ",width=button_width )
+        self.btn_stopServer.grid(row=2,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        
+        self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
+        self.btn_query.grid(row=3,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
+        
+        self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_write, style='TButton', text="Write DB to File ",width=button_width )
+        self.btn_write.grid(row=4,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        
+        self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
+        self.btn_exit.grid(row=5,column=1, columnspan=5, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        
+        ### right_frame z
+#         self.right_frame = Frame(self.top_frame)
+#         self.right_frame.pack(side=RIGHT,anchor=E)  ###
+
+        self.sp_bottom = ttk.Separator(self.masterFrame,orient=HORIZONTAL)
+        self.sp_bottom.grid(row=6,column=0 ,columnspan=11, pady=5, sticky=(E, W))
+        # now we add the buttons to the buttons_frame    
+#         self.button1 = Button(self.masterFrame, command=self.button1Click,text="OK",width=button_width)
+#         self.button1.configure(text="OK")
+#         self.button1.focus_force()       
+#         self.button1.config( 
+#             width=button_width,  ### (1)
+#                  ### (2)
+#             )
+
+#         self.button1.pack(side=LEFT,)    
+#         self.button1.bind("<Return>", self.button1Click_a)  
+        
+        
+        
+        self.lbl_userSts = Label(self.masterFrame, image=self.icn_userOffline)
+        self.lbl_userSts.grid(row=7, column=5, sticky=(E))
+        self.disableBtnStopServer()
+#         self.addConnectedServerIcon(1)
+#         self.addConnectedServerIcon(2)
+#         self.addConnectedServerIcon(3)
+#         self.addConnectedServerIcon(4)
+
+    def startUp(self):
+#         ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        self.o_standardServer = StdServer('Manager_Server', T_StdRequestHandler) 
+        self.o_standardServer.activate()
+        
+    def stopServer(self):
+        self.o_serverManager.shutdown()
     
+    def addConnectedServerIcon(self,position):
+        lbl_serverConnected = Label(self.masterFrame, image=self.icn_serverConnected)
+        lbl_serverConnected.grid(row=6, column=position, sticky=(S))
+#         self.rowCounter = self.rowCounter+1
+        self.l_serversConectedIcons.append(lbl_serverConnected)
+    
+    def removeConnectedServerIcon(self):
+        self.l_serversConectedIcons.pop().destroy()
+    
+    def enableBtnStopServer(self):
+        self.btn_stopServer.state(["!disabled"])   # Disable the stop button.
+        
+    def disableBtnStopServer(self):
+        self.btn_stopServer.state(["disabled"])   # Disable the stop button.
+    
+    def enableBtnStartServer(self):
+        self.btn_startServer.state(["!disabled"])   # Disable the stop button.
+        
+    def disableBtnStartServer(self):
+        self.btn_startServer.state(["disabled"])   # Disable the stop button.
+    
+    def clientOnline(self):
+        self.lbl_userSts.config(image=self.icn_userOnline)
+    
+    def clientOffline(self):
+        self.lbl_userSts.config(image=self.icn_userOffline)
+    
+    def updateWelcomePort(self,event):
+        StdServer.WELCOME_PORT = int(self.cb_listenPort.get())
+#         print(int(self.cb_listenPort.get()))
+    
+    def buttonClick(self):      
+        pass
+    
+    def clickExit(self): 
+        self.o_serverManager.shutdown()
+        self.myParent.destroy()     
+
+
+
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
-    port = 31101
-    ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
-    StdServer.activate(StdServer, 'STD_Server', ipAddress, port)
+#     port = 31101
+#     ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+#     StdServer.activate(StdServer, 'STD_Server', ipAddress, port)
+    root = Tk()
+    appWindownManager = STD_window(root)
+    root.mainloop()
     

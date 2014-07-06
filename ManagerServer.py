@@ -338,10 +338,10 @@ class SM_window(Frame):
         self.btn_stopServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.stopServer, image=self.icn_stopServer, style='TButton', text="Stop Server ",width=button_width )
         self.btn_stopServer.grid(row=1,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
-        self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.button1Click, image=self.icn_query, style='TButton', text="Query ",width=button_width )
+        self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
         self.btn_query.grid(row=2,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
         
-        self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.button1Click, image=self.icn_write, style='TButton', text="Write DB to File ",width=button_width )
+        self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_write, style='TButton', text="Write DB to File ",width=button_width )
         self.btn_write.grid(row=3,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
         self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
@@ -413,22 +413,12 @@ class SM_window(Frame):
     def clientOffline(self):
         self.lbl_userSts.config(image=self.icn_userOffline)
     
-    def button1Click(self):      
-        if self.button1["background"] == "green":  
-            self.button1["background"] = "yellow"
-        else:
-            self.button1["background"] = "green"
+    def buttonClick(self):      
+        pass
     
     def clickExit(self): 
         self.o_serverManager.shutdown()
         self.myParent.destroy()     
-        
-    def button1Click_a(self, event):  
-        self.button1Click()
-                
-    def button2Click_a(self, event): 
-        self.button2Click() 
-
 
 
 
