@@ -2,8 +2,7 @@ from PIRServerBasic import PIRServerBasic
 from PIRServerBasic import ThreadedRequestHandler
 from tkinter import *
 from tkinter import ttk
-from tkinter.scrolledtext import *
-
+from tkinter import messagebox
 import logging
 import threading
 import socket
@@ -20,7 +19,8 @@ class T_StdRequestHandler(ThreadedRequestHandler):
     from threading import RLock
         
     lock = RLock()
-    
+    b_isServerConnected=False
+    b_isClientConnected=False
     def __init__(self, request, client_address, server):
         return ThreadedRequestHandler.__init__(self, request, client_address, server,'T_StdRequestHandler')
 #     
@@ -33,7 +33,7 @@ class T_StdRequestHandler(ThreadedRequestHandler):
     def handleMsg(self,recvOpcode,msg):
         code = OpCodes.getCode(self, recvOpcode)
             
-        if code == 'hello':
+        if code == 'serverHello':
             self.logger.info(code)
         elif code == 'hello_ack':
             self.logger.info (code)
@@ -59,6 +59,8 @@ class T_StdRequestHandler(ThreadedRequestHandler):
             self.logger.info (code)
         elif code == 'ipAndPortReply':
             self.logger.info (code)
+        elif code == 'clientHello':
+            self.logger.info (code)
         else:
             self.logger.info("Bad opCode")
 
@@ -66,11 +68,11 @@ class T_StdRequestHandler(ThreadedRequestHandler):
 
 
 class StdServer(PIRServerBasic):
-    managerServerAddresPort = ('192.168.4.1',31100)
+    managerServerAddresPort = ('192.168.2.121',31100)
     WELCOME_PORT = 31101    
 
     def __init__(self, log_name, handler_class=T_StdRequestHandler):
-        self.selfIPAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        self.selfIPAddress = [(s.connect(('192.168.2.1', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
         self.tup_socket = (self.selfIPAddress, self.WELCOME_PORT) # let the kernel give us a port, tuple of the address and port
 #         self.selfIPAddress = server_address[0]
 #         self.selfPort = server_address[1]
@@ -101,8 +103,8 @@ class StdServer(PIRServerBasic):
         
     def KeepAliveSendHello(self):
         attempts = 0
+        s_openToManager = self.connection_2_Manager()
         while attempts<3:
-            s_openToManager = self.connection_2_Manager()
             if s_openToManager != None:
                 self.send_hello_2_manager(s_openToManager)
                 sleep(StdServer.HELLO_INTERVAL)
@@ -127,8 +129,8 @@ class StdServer(PIRServerBasic):
             
     def send_hello_2_manager(self,s_openToManager):
         self.logger.debug(self.selfIPAddress)
-        self.frameBuilder.assembleFrame(codes.getValue('hello')[0], self.selfIPAddress + ":" + str(self.WELCOME_PORT))
-        self.logger.debug('sending ''hello'' to Manager_Server')
+        self.frameBuilder.assembleFrame(codes.getValue('serverHello')[0], self.selfIPAddress + ":" + str(self.WELCOME_PORT))
+        self.logger.debug('sending ''serverHello'' to Manager_Server')
         s_openToManager.send(bytes(self.frameBuilder.getFrame()))
 #         while True:
 
@@ -171,25 +173,6 @@ class STD_window(Frame):
         buttons_frame_ipady = "1"   ### (3)
         # -------------- end constants ----------------
 
-        ### We will use VERTICAL (top/bottom) orientation inside myContainer1.
-        ### Inside myContainer1, first we create buttons_frame.
-        ### Then we create top_frame and bottom_frame.
-        ### These will be our demonstration frames.         
-#         self.label = Label(self.myContainer1, text="Welcome")
-#         self.label.pack(side=TOP,anchor='n')
-#         # buttons frame
-#         self.buttons_frame = Frame(self.myContainer1) ###
-#         self.buttons_frame.pack(fill=X,anchor=S,side=BOTTOM)    
-#         self.buttons_frame.columnconfigure(0,weight=2)
-        # top frame
-#         self.top_frame = Frame(self.myContainer1) 
-#         self.top_frame.pack(side=TOP,anchor=N)  ###
-        
-        # bottom frame
-#         self.bottom_frame = Frame(self.myContainer1) ###   
-#         self.bottom_frame.grid()  ###
-        
-        
         
         self.style = ttk.Style(self.myParent)
         self.style.configure('TButton', font=("Arial", 12,'bold'))#larger Font for buttons
@@ -205,15 +188,7 @@ class STD_window(Frame):
         self.icn_userOnline = PhotoImage(file="icons/UserOnline.png")
         self.icn_userOffline = PhotoImage(file="icons/UserOffline.png")
         
-        
-        ### Now we will put two more frames, left_frame and right_frame,
-        ### inside top_frame.  We will use HORIZONTAL (left/right)
-        ### orientation within top_frame.
-        
-        # left_frame        
-#         self.left_frame = Frame(self.top_frame) ###
-#         self.left_frame.pack(side=LEFT,anchor=W,fill=Y)  ###
-        
+
         self.cb_listenPort = ttk.Combobox(self.masterFrame, textvariable=StdServer.WELCOME_PORT, style='TCombobox')
         self.cb_listenPort.bind('<<ComboboxSelected>>', self.updateWelcomePort)
         self.cb_listenPort['values'] = ('31101', '31102', '31103', '31104', '31105', '31106', '31107', '31108', '31109', '31110')
@@ -236,25 +211,10 @@ class STD_window(Frame):
         self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
         self.btn_exit.grid(row=5,column=1, columnspan=5, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
-        ### right_frame z
-#         self.right_frame = Frame(self.top_frame)
-#         self.right_frame.pack(side=RIGHT,anchor=E)  ###
 
         self.sp_bottom = ttk.Separator(self.masterFrame,orient=HORIZONTAL)
         self.sp_bottom.grid(row=6,column=0 ,columnspan=11, pady=5, sticky=(E, W))
-        # now we add the buttons to the buttons_frame    
-#         self.button1 = Button(self.masterFrame, command=self.button1Click,text="OK",width=button_width)
-#         self.button1.configure(text="OK")
-#         self.button1.focus_force()       
-#         self.button1.config( 
-#             width=button_width,  ### (1)
-#                  ### (2)
-#             )
-
-#         self.button1.pack(side=LEFT,)    
-#         self.button1.bind("<Return>", self.button1Click_a)  
-        
-        
+ 
         
         self.lbl_userSts = Label(self.masterFrame, image=self.icn_userOffline)
         self.lbl_userSts.grid(row=7, column=5, sticky=(E))
@@ -266,8 +226,14 @@ class STD_window(Frame):
 
     def startUp(self):
 #         ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
-        self.o_standardServer = StdServer('Manager_Server', T_StdRequestHandler) 
-        self.o_standardServer.activate()
+        try:
+            self.o_standardServer = StdServer('Manager_Server', T_StdRequestHandler)
+            self.o_standardServer.activate() 
+        except:
+#             self.o_standardServer.logger.debug('Something went wrong. Change port.')
+            messagebox.showinfo("Server Error", "Server start-up failed.\nTry selecting different port.")
+            
+        
         
     def stopServer(self):
         self.o_serverManager.shutdown()

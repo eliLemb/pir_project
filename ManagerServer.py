@@ -5,8 +5,6 @@ import queue
 import random
 import time
 
-# from PIL import Image
-
 from tkinter import *
 from tkinter import ttk
 from tkinter.scrolledtext import *
@@ -29,55 +27,76 @@ WELCOME_PORT = 31100
 
 #T stands for threaded
 class T_ManagerRequestHandler(ThreadedRequestHandler):
-    
+    lock = RLock()
 #     frameBuilder = FrameBuilder()
-    
+#     global appWindownManager
     b_isServerConnected=False
+    b_isClientConnected=False
+    serverInsertIndex=-1
     def __init__(self, request, client_address, server):
         return ThreadedRequestHandler.__init__(self, request, client_address, server,'T_ManagerRequestHandler')
         
     
+#     def handle(self):
+#         self.logger.debug('handle')
+#         while True:
+#         # Echo the back to the client
+#             try:
+#                 data = self.request.recv(2)
+#                 if data == '' or len(data) == 0:
+#                     break
+#             except Exception: 
+#                 self.logger.debug('recv len failed')
+#                 if (self.b_isServerConnected == True):
+#                     self.logger.debug('STD_Server disconnected')
+#                     self.lock.acquire(True)
+#                     appWindownManager.removeConnectedServerIcon()
+#                     active_servers.pop(self.serverInsertIndex)
+#                     q_freeIndexs.put_nowait(self.serverInsertIndex)
+#                     self.logger.info('server %s was removed and it''s index will be recycled' ,self.serverInsertIndex)        
+#                     self.lock.release()
+#                 if (self.b_isClientConnected == True):
+#                     self.logger.debug('Client disconnected')
+#                     appWindownManager.clientOffline()
+#                 break
+#             #Got data Successfully
+#             recvOpcode = data[0] #first byte is op code
+#             size = data[1]
+#             try:
+#                 data = self.request.recv(size)
+#                 if data == '' or len(data) == 0:
+#                     break
+#             except Exception: 
+#                 self.logger.debug('recv data failed')
+#                 break
+#             self.handleMsg(recvOpcode,data)                
+#         return    
     
     
     
-    def handle(self):
-        self.logger.debug('handle')
-        while True:
-        # Echo the back to the client
-            try:
-                data = self.request.recv(2)
-                if data == '' or len(data) == 0:
-                    break
-            except Exception: 
-                self.logger.debug('recv failed')
-                if (self.b_isServerConnected == True):
-                    appWindownManager.removeConnectedServerIcon()
-                break
-            #Got data Successfully
-            recvOpcode = data[0] #first byte is op code
-            size = data[1]
-            try:
-                data = self.request.recv(size)
-                if data == '' or len(data) == 0:
-                    break
-            except Exception: 
-                self.logger.debug('recv data failed')
-                break
-            self.handleMsg(recvOpcode,data)                
-        return    
-    
-    
-    
-    
+    def finish(self):
+        if (self.b_isServerConnected == True):
+            self.logger.debug('STD_Server disconnected')
+            self.lock.acquire(True)
+            appWindownManager.removeConnectedServerIcon()
+            active_servers.pop(self.serverInsertIndex)
+            q_freeIndexs.put_nowait(self.serverInsertIndex)
+            self.logger.info('server %s was removed and it''s index will be recycled' ,self.serverInsertIndex)        
+            self.lock.release()
+        if (self.b_isClientConnected == True):
+            self.logger.debug('Client disconnected')
+            appWindownManager.clientOffline()        
+        return ThreadedRequestHandler.finish(self)
     
     ##Handle hello msg from STD_server and insert it's ip and port
     def handleHello(self,payload):
         self.b_isServerConnected = True
         modifiedPayload = payload.decode('utf-8')
         serverCredential = modifiedPayload.split(':')
-        insertIndex = self.server.addServer2ActiveServers(serverCredential)
+        insertIndex,reassigment = self.server.addServer2ActiveServers(serverCredential)
+        self.serverInsertIndex = insertIndex
         s_stdServer = self.connection_2_target((active_servers[insertIndex][0],active_servers[insertIndex][1]))
-        appWindownManager.addConnectedServerIcon(insertIndex)
+        appWindownManager.addConnectedServerIcon(insertIndex,reassigment)
         if s_stdServer != None:
             self.assamble4ReplyHello(insertIndex,s_stdServer)
             self.send_2_target(s_stdServer)
@@ -90,14 +109,18 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         self.frameBuilder.assembleFrame(codes.getValue('hello_ack')[0],str(insertIndex))
 #         s_stdServer.send(bytes(self.frameBuilder.getFrame())) 
    
-    def handleClientConnection(self):
-        self.server.addClient(self.client_address)
+    def handleClientConnection(self,msg):
+#         self.server.addClient(self.client_address)
         appWindownManager.clientOnline()
-        try:
-            self.request.recv(1)
-        except Exception: 
-            self.logger.debug('Client disconnected')
-            appWindownManager.clientOffline()
+        super(T_ManagerRequestHandler,self).handleClientConnection(msg)
+        appWindownManager.writeToScrolledConsole(msg)
+#         self.b_isClientConnected=True
+#         self.request.send(bytes(msg,"utf-8"))
+#         try:
+#             self.request.recv(1)
+#         except Exception: 
+#             self.logger.debug('Client disconnected')
+#             appWindownManager.clientOffline()
         
     def handleServerQuantity(self):
         self.assamble4ServerQuantity()
@@ -130,7 +153,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
     def handleMsg(self,recvOpcode,msg):
         code = OpCodes.getCode(self, recvOpcode)
             
-        if code == 'hello':
+        if code == 'serverHello':
             self.logger.info(code)
             self.handleHello(msg)
         elif code == 'hello_ack':
@@ -162,7 +185,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
             self.killThisServer()
         elif code == 'clientHello':
             self.logger.info (code)
-            self.handleClientConnection()
+            self.handleClientConnection(msg)
         else:
             self.logger.info("Bad opCode")
 
@@ -184,7 +207,7 @@ class ManagerServer(PIRServerBasic):
     lock = RLock()
     
     def __init__(self, log_name, handler_class=T_ManagerRequestHandler):
-        ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        ipAddress = [(s.connect(('192.168.2.1', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
         self.tup_socket = (ipAddress, WELCOME_PORT) # let the kernel give us a port, tuple of the address and port
         self.log_name = log_name
         return PIRServerBasic.__init__(self, log_name, self.tup_socket, handler_class=handler_class)
@@ -208,24 +231,24 @@ class ManagerServer(PIRServerBasic):
     def addServer2ActiveServers(self,serverCredential):
         tup_serverCredential = serverCredential[0],int(serverCredential[1])
         self.lock.acquire(blocking=True)
-        insertIndex = self.checkServerRegistered(tup_serverCredential)
+        insertIndex,reassigment = self.checkServerRegistered(tup_serverCredential)
 #         insertIndex = active_servers.__len__()
         tup_serverCredential = tup_serverCredential+ (int(time.time()%1000000),)
         active_servers[insertIndex] = tup_serverCredential
         self.lock.release()
         self.logger.info('server was added at: %s' ,insertIndex)
-        return insertIndex        
+        return (insertIndex,reassigment)        
     
     def checkServerRegistered(self,serverCredential):
         try:
             insertIndex =  [ k for k, element in active_servers.items() if (element[0],element[1]) == serverCredential]
             if not insertIndex:
                 if q_freeIndexs.empty():
-                    return active_servers.__len__()
+                    return (active_servers.__len__(),False)
                 else:
-                    return q_freeIndexs.get(block=True, timeout=3)
+                    return (q_freeIndexs.get(block=True, timeout=3),False)
             else:
-                return insertIndex[0]
+                return (insertIndex[0],True)
         except Exception:
             return 
     
@@ -246,7 +269,7 @@ class ManagerServer(PIRServerBasic):
                 active_servers.pop(keys)
                 q_freeIndexs.put_nowait(keys)
 #                 appWindownManager.removeConnectedServerIcon()
-                self.logger.info('server %s was removed and its index will be recycled' ,keys)        
+                self.logger.info('server %s was removed and it''s index will be recycled' ,keys)        
             self.lock.release()
             self.toCleanIndex.clear()        
     
@@ -341,7 +364,7 @@ class SM_window(Frame):
         self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
         self.btn_query.grid(row=2,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
         
-        self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_write, style='TButton', text="Write DB to File ",width=button_width )
+        self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.removeConnectedServerIcon, image=self.icn_write, style='TButton', text="Write DB to File ",width=button_width )
         self.btn_write.grid(row=3,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
         self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
@@ -386,14 +409,20 @@ class SM_window(Frame):
     def stopServer(self):
         self.o_serverManager.shutdown()
     
-    def addConnectedServerIcon(self,position):
-        lbl_serverConnected = Label(self.masterFrame, image=self.icn_serverConnected)
-        lbl_serverConnected.grid(row=6, column=position, sticky=(S))
+    def addConnectedServerIcon(self,position,reassigment):
+        if reassigment==False:
+            lbl_serverConnected = Label(self.masterFrame, image=self.icn_serverConnected)
+            lbl_serverConnected.grid(row=6, column=self.l_serversConectedIcons.__len__()+1)
+#             self.o_serverManager.logger.debug('Grid position: %s',self.l_serversConectedIcons.__len__())
+
 #         self.rowCounter = self.rowCounter+1
-        self.l_serversConectedIcons.append(lbl_serverConnected)
+            self.l_serversConectedIcons.append(lbl_serverConnected)
     
     def removeConnectedServerIcon(self):
-        self.l_serversConectedIcons.pop().destroy()
+        try:
+            self.l_serversConectedIcons.pop().destroy()
+        except:
+            self.o_serverManager.logger.debug('Label remove failed')
     
     def enableBtnStopServer(self):
         self.btn_stopServer.state(["!disabled"])   # Disable the stop button.
@@ -421,18 +450,8 @@ class SM_window(Frame):
         self.myParent.destroy()     
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+    def writeToScrolledConsole(self,msg):
+#         self.txt_scrolledConsole.insert( str(msg))
 
 #         Frame.__init__(self, parent)   
 #         self.parent = parent

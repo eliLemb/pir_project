@@ -69,6 +69,12 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         return
             
     
+    def handleClientConnection(self,msg):
+        self.server.addClient(self.client_address)
+#         appWindownManager.clientOnline()
+        self.b_isClientConnected=True
+        self.request.send(msg)
+    
     def finish(self):
         self.logger.debug('finish')
         return socketserver.BaseRequestHandler.finish(self)

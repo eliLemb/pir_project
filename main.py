@@ -62,7 +62,7 @@ if __name__ == "__main__":
 #     logger.debug('BitArray s: %s' ,p_bitstring)
     
     frameBuilder = FrameBuilder()
-    ip, port = '192.168.4.1', 31100
+    ip, port = '192.168.2.121', 31100
 #     print (codes.get_code(b'242'))
 
     logger.info('Server on %s:%s', ip, port)
@@ -95,7 +95,8 @@ if __name__ == "__main__":
         logger.debug('response from server: "%s"', response)
 #         print('response from server: ', response.encode("utf-8"))
         sleep(0.05)
-    
+#         connectedFlag = False
+
     # Clean up
     logger.debug('closing socket')
     s.close()
