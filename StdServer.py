@@ -238,15 +238,6 @@ class STD_window(Frame):
     def stopServer(self):
         self.o_serverManager.shutdown()
     
-    def addConnectedServerIcon(self,position):
-        lbl_serverConnected = Label(self.masterFrame, image=self.icn_serverConnected)
-        lbl_serverConnected.grid(row=6, column=position, sticky=(S))
-#         self.rowCounter = self.rowCounter+1
-        self.l_serversConectedIcons.append(lbl_serverConnected)
-    
-    def removeConnectedServerIcon(self):
-        self.l_serversConectedIcons.pop().destroy()
-    
     def enableBtnStopServer(self):
         self.btn_stopServer.state(["!disabled"])   # Disable the stop button.
         

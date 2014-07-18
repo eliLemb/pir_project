@@ -451,6 +451,7 @@ class SM_window(Frame):
 
 
     def writeToScrolledConsole(self,msg):
+        pass
 #         self.txt_scrolledConsole.insert( str(msg))
 
 #         Frame.__init__(self, parent)   
