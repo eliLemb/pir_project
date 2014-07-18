@@ -9,6 +9,7 @@ from FrameBuilder import FrameBuilder
 from bitstring import BitArray
 
 
+codes = OpCodes()
 
 port = 0    
 # IP_CACHE = {'server1' : ('192.168.4.1',port)}
@@ -53,7 +54,7 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
                 self.logger.debug('recv data failed')
                 break
             payload = data
-            self.handleMsg(recvOpcode,payload)
+            self.handleMsg(recvOpcode,bytes.decode(payload))
                 
 #             try:
 #                 self.logger.debug('recv()->"%s"', payload)
@@ -73,7 +74,8 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         self.server.addClient(self.client_address)
 #         appWindownManager.clientOnline()
         self.b_isClientConnected=True
-        self.request.send(msg)
+        self.frameBuilder.assembleFrame(codes.getValue('hello_ack')[0],str(msg))
+        self.request.send(self.frameBuilder.getFrame())
     
     def finish(self):
         self.logger.debug('finish')

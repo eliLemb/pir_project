@@ -26,6 +26,9 @@ from _ctypes import sizeof
 from tkinter import *
 from tkinter import ttk
 from tkinter.scrolledtext import *
+from threading import RLock
+
+
 
 '''''
 http://python.about.com/od/python30/ss/30_strings_3.htm
@@ -43,11 +46,16 @@ import time
 
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)
 codes = OpCodes()
+S_M_PORT = 31100    
+active_servers = {}
 
 
 class client_window(Frame):
-    
+    frameBuilder = FrameBuilder()
+    lock = RLock()
     def __init__(self, parent):
+        self.logger = logging.getLogger("Client computer")
+
         self.queryMethod=''
         self.desirableBit=0
         self.myParent = parent 
@@ -131,7 +139,10 @@ class client_window(Frame):
     def updatDesiedBit(self,value):    
         self.lbl_bitIndex.configure(text= str(int(float(value))))
     def clickConnect(self): 
-        self.ServerConnected()
+        self.t_SMConnection = threading.Thread(target = self.connect2SM)
+        self.t_SMConnection.start()
+        
+        
 #         self.scl_bitChoice.configure(to=1000)
     def ServerConnected(self):
         self.lbl_connectionSts.config(image=self.icn_SM_connected)
@@ -139,9 +150,150 @@ class client_window(Frame):
         self.lbl_connectionSts.config(image=self.icn_SM_disconnected)
     def clickExit(self):
         self.myParent.destroy()
-
-
     
+    def clickQuery(self):
+        pass
+    
+    def connect2SM(self):
+        ipSM = self.txt_SMAddress.get() 
+        
+        self.logger.debug('creating socket')
+        soc_serverManager = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.logger.debug('connecting to server')
+        try:
+            soc_serverManager.connect((ipSM, S_M_PORT))
+        except Exception: 
+            self.logger.debug('connection failed')
+        self.saveServerDetails((ipSM,S_M_PORT,soc_serverManager))
+        self.frameBuilder.assembleFrame(codes.getValue('clientHello')[0],"client says hello")
+        soc_serverManager.send(self.frameBuilder.getFrame())
+        self.readSocketForResponse(soc_serverManager)
+        self.getSTDservers()
+        
+        
+        
+        
+#         while True:
+#         # Echo the back to the client
+#             try:
+#                 data = self.soc_serverManager.recv(2)
+#                 if data == '' or len(data) == 0:
+#                     break
+#             except Exception: 
+#                 self.logger.debug('recv failed')
+#                 break
+#             #Got data Successfully
+#             self.recvOpcode = data[0] #first byte is op code
+#             size = data[1]
+#             try:
+#                 data = self.soc_serverManager.recv(size)
+#                 if data == '' or len(data) == 0:
+#                     break
+#             except Exception: 
+#                 self.logger.debug('recv data failed')
+#                 break
+#             self.payload = data
+#             self.logger.info("Received: %s %s",self.recvOpcode,self.payload )
+#             self.reponseHandler(self.recvOpcode,self.payload)
+#             break
+        
+        
+        
+        
+#         self.readSocketForResponse(self.soc_serverManager)
+            
+    def readSocketForResponse(self,runnigSocket):
+        while True:
+        # Echo the back to the client
+            try:
+                data = runnigSocket.recv(2)
+                if data == '' or len(data) == 0:
+                    break
+            except Exception: 
+                self.logger.debug('recv failed')
+                break
+            #Got data Successfully
+            self.recvOpcode = data[0] #first byte is op code
+            size = data[1]
+            try:
+                data = runnigSocket.recv(size)
+                if data == '' or len(data) == 0:
+                    break
+            except Exception: 
+                self.logger.debug('recv data failed')
+                break
+            self.payload = data
+            self.logger.info("Received: %s %s",self.recvOpcode,self.payload )
+            self.reponseHandler(self.recvOpcode,self.payload)
+            break
+        
+        
+        
+        
+    def reponseHandler(self,recvOpcode,msg):
+        self.code = OpCodes.getCode(self, self.recvOpcode)
+        
+        if self.code == 'hello_ack':
+            self.logger.info (self.code)
+            self.ServerConnected()
+        elif self.code == 'server_quantity_reply':
+            self.logger.info (self.code)
+            self.handleQuantityReply(msg)
+        elif self.code == 'servers_up':
+            self.logger.info (self.code)
+        elif self.code == 'servers_failed':
+            self.logger.info (self.code)
+        elif self.code == 'db_length':
+            self.logger.info (self.code)
+        elif self.code == 'query_response':
+            self.logger.info (self.code)
+        elif self.code == 'ipAndPortReply':
+            self.logger.info (self.code)
+            self.handleIpAndPortReply(msg)
+        else:
+            self.logger.info("Bad opCode")        
+    
+        
+        
+        
+        
+        
+    def getSTDservers(self):
+        soc_serverManager = active_servers[0][2]
+        self.frameBuilder.assembleFrame(codes.getValue('server_quantity_request')[0],"server quantity request")
+        soc_serverManager.send(self.frameBuilder.getFrame())
+        self.readSocketForResponse(soc_serverManager)
+
+        
+    def handleQuantityReply(self,msg):
+        quantity = int(msg)
+        soc_serverManager = active_servers[0][2]
+        for currentServer in range(1, quantity):
+            self.frameBuilder.assembleFrame(codes.getValue('ipAndPortRequest')[0],str(currentServer))
+            soc_serverManager.send(self.frameBuilder.getFrame())
+            self.readSocketForResponse(soc_serverManager)
+
+             
+             
+    def saveServerDetails(self,serverCredential):
+        self.lock.acquire(blocking=True)
+        active_servers[active_servers.__len__()] = serverCredential
+        self.lock.release()
+        
+        
+        
+    def handleIpAndPortReply(self,msg):
+        modifiedMsg = msg.decode('utf-8')
+        try:
+            index,stdIP,stdPort = modifiedMsg.split(':',3)
+        except Exception: 
+                self.logger.debug('Bad ipAndPortRequest fromat')
+        
+        self.lock.acquire(blocking=True)
+        active_servers[int(index)] = (stdIP,int(stdPort))
+        self.lock.release()
+        self.logger.debug('STD Server:%s on Port:%s was added in index:%s ', stdIP,stdPort,str(index))
+        
 if __name__ == "__main__":
     logger = logging.getLogger('Client')
     root = Tk()

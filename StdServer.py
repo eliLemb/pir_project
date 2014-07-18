@@ -68,11 +68,11 @@ class T_StdRequestHandler(ThreadedRequestHandler):
 
 
 class StdServer(PIRServerBasic):
-    managerServerAddresPort = ('192.168.2.121',31100)
+    managerServerAddresPort = ('192.168.4.1',31100)
     WELCOME_PORT = 31101    
 
     def __init__(self, log_name, handler_class=T_StdRequestHandler):
-        self.selfIPAddress = [(s.connect(('192.168.2.1', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        self.selfIPAddress = [(s.connect(('192.168.4.1', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
         self.tup_socket = (self.selfIPAddress, self.WELCOME_PORT) # let the kernel give us a port, tuple of the address and port
 #         self.selfIPAddress = server_address[0]
 #         self.selfPort = server_address[1]

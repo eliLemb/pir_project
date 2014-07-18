@@ -91,7 +91,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
     ##Handle hello msg from STD_server and insert it's ip and port
     def handleHello(self,payload):
         self.b_isServerConnected = True
-        modifiedPayload = payload.decode('utf-8')
+        modifiedPayload = payload
         serverCredential = modifiedPayload.split(':')
         insertIndex,reassigment = self.server.addServer2ActiveServers(serverCredential)
         self.serverInsertIndex = insertIndex
@@ -141,7 +141,26 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         self.logger.info('DB length in bits: %s.',bitLength)
         self.logger.debug('reply ''db_length'' to %s ',self.request.getsockname())
         self.frameBuilder.assembleFrame(codes.getValue('db_length')[0],str(bitLength))
-               
+    
+    
+    def handleIpAndPortRequest(self,msg):
+        requestedIndex = int(msg)
+        self.assambleIPPort(requestedIndex)
+        self.request.send(self.frameBuilder.getFrame())
+        
+    def assambleIPPort(self,requestedIndex):
+        tup_serverCredential=active_servers[requestedIndex]
+        index = str(requestedIndex)
+        ip = tup_serverCredential[0]
+        port = str(tup_serverCredential[1]) 
+        self.frameBuilder.assembleFrame(codes.getValue('ipAndPortReply')[0],index+":"+ip+":"+port)
+        
+        
+        
+        
+        
+        
+        
     def killThisServer(self):
         pass
 #         self.finish()
@@ -178,6 +197,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
             self.logger.info (code)
         elif code == 'ipAndPortRequest':
             self.logger.info (code)
+            self.handleIpAndPortRequest(msg)
         elif code == 'ipAndPortReply':
             self.logger.info (code)
         elif code == 'terminate':
@@ -207,7 +227,7 @@ class ManagerServer(PIRServerBasic):
     lock = RLock()
     
     def __init__(self, log_name, handler_class=T_ManagerRequestHandler):
-        ipAddress = [(s.connect(('192.168.2.1', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
         self.tup_socket = (ipAddress, WELCOME_PORT) # let the kernel give us a port, tuple of the address and port
         self.log_name = log_name
         return PIRServerBasic.__init__(self, log_name, self.tup_socket, handler_class=handler_class)
@@ -233,7 +253,7 @@ class ManagerServer(PIRServerBasic):
         self.lock.acquire(blocking=True)
         insertIndex,reassigment = self.checkServerRegistered(tup_serverCredential)
 #         insertIndex = active_servers.__len__()
-        tup_serverCredential = tup_serverCredential+ (int(time.time()%1000000),)
+        tup_serverCredential = tup_serverCredential + (int(time.time()%1000000),)
         active_servers[insertIndex] = tup_serverCredential
         self.lock.release()
         self.logger.info('server was added at: %s' ,insertIndex)
@@ -287,7 +307,7 @@ class ManagerServer(PIRServerBasic):
     def genarateDB(self):
         self.b_DB = BitArray(hex(random.getrandbits(self.dbLengthMB *self.c_MB)))
         
-       
+      
 
 class SM_window(Frame):
     o_serverManager=None
