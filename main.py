@@ -27,7 +27,8 @@ from tkinter import *
 from tkinter import ttk
 from tkinter.scrolledtext import *
 from threading import RLock
-
+from queue import Queue
+from threading import Thread
 
 
 '''''
@@ -46,9 +47,11 @@ import time
 
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)
 codes = OpCodes()
-S_M_PORT = 31100    
+S_M_PORT = 31100
+DB_LENGTH = 500   
 active_servers = {}
-
+serversPool = Queue()
+serversQueryReply = list()
 
 class client_window(Frame):
     frameBuilder = FrameBuilder()
@@ -56,7 +59,7 @@ class client_window(Frame):
     def __init__(self, parent):
         self.logger = logging.getLogger("Client computer")
 
-        self.queryMethod=''
+        self.queryMethod=IntVar()
         self.desirableBit=0
         self.myParent = parent 
         self.myParent.title('PIR Client')
@@ -101,20 +104,22 @@ class client_window(Frame):
         self.lbl_connectionSts = Label(self.masterFrame, image=self.icn_SM_disconnected)
         self.lbl_connectionSts.grid(row=2, column=7, sticky=(E))
         
-        self.chk_pir = ttk.Radiobutton(self.masterFrame, text='PIR', variable=self.queryMethod, value='pir')
+        self.chk_pir = ttk.Radiobutton(self.masterFrame, text='PIR', variable=self.queryMethod, value=1)
         self.chk_pir.grid(row=3,column=0,columnspan=2, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W, S))
+        self.chk_pir.state(['selected'])
+        self.queryMethod.set(1)
         
-        self.chk_regular = ttk.Radiobutton(self.masterFrame, text='Standard', variable=self.queryMethod, value='regular')
+        self.chk_regular = ttk.Radiobutton(self.masterFrame, text='Standard', variable=self.queryMethod, value=2)
         self.chk_regular.grid(row=4,column=0,columnspan=2, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W, S))
         
-        self.scl_bitChoice = ttk.Scale(self.masterFrame, orient=HORIZONTAL, from_=1.0, to=500.0,command=self.updatDesiedBit)
+        self.scl_bitChoice = ttk.Scale(self.masterFrame, orient=HORIZONTAL, from_=1.0, to=DB_LENGTH,command=self.updatDesiedBit)
         self.scl_bitChoice.grid(row=5, column=0, columnspan=8, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady,sticky=(W,E))
         
         self.lbl_bitIndex = ttk.Label(self.masterFrame, compound=CENTER,  style='TLabel' , text = '1')
         self.lbl_bitIndex.grid(row=6,column=1, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W,E))
         
         
-        self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickConnect, style='TButton', text="Get value ",image=self.icn_query, width=button_width )
+        self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickQuery, style='TButton', text="Get value ",image=self.icn_query, width=button_width )
         self.btn_query.grid(row=7,column=0, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W))
          
         self.lbl_result = ttk.Label(self.masterFrame, compound=CENTER, style='TLabel', text='XX',justify=LEFT)
@@ -130,7 +135,7 @@ class client_window(Frame):
        
        
        
-       
+        
        
        
        
@@ -143,66 +148,92 @@ class client_window(Frame):
         self.t_SMConnection.start()
         
         
-#         self.scl_bitChoice.configure(to=1000)
-    def ServerConnected(self):
+#         
+    def ServerConnected_icon(self):
         self.lbl_connectionSts.config(image=self.icn_SM_connected)
-    def ServerDisconnected(self):
+    def ServerDisconnected_icon(self):
         self.lbl_connectionSts.config(image=self.icn_SM_disconnected)
+        
+       
+    
+    
     def clickExit(self):
         self.myParent.destroy()
     
-    def clickQuery(self):
-        pass
+    def configureDBScale(self,valueToUpdate):
+        self.scl_bitChoice.configure(to=valueToUpdate)
+        
     
+    
+    
+    def clickQuery(self):
+        if self.queryMethod.get()==1:
+            self.logger.info("PIR radio selected")
+            self.generatePIRQuery()
+
+        elif self.queryMethod.get()==2:
+            self.logger.info("Regular radio selected")
+            self.generateRegQuery()
+
+    
+    
+    def generateRegQuery(self):
+        self.generatePIRQuery()
+    
+    def generatePIRQuery(self):
+        targetBit = int(self.scl_bitChoice.get())
+        self.pushServersIntoQueue()
+        for targetServer in range(0,active_servers.__len__()):
+#             serverTuple = active_servers[targetServer]
+#             avtiveTargetSocket = serverTuple[2]
+            worker = Thread(target=self.sendQueries, args=(targetBit,))
+#             self.logger.info("Worker %s: created, connected to %s:%s",worker.getName(),serverTuple[0],serverTuple[1])
+            worker.setDaemon(True)
+            worker.start()
+#             worker.join()
+        serversPool.join()
+        self.logger.info("All threads returned")
+        if(serversQueryReply.__len__() == active_servers.__len__()):
+            self.logger.info("All servers replied to the query")
+        
+    
+    def pushServersIntoQueue(self):
+        serversPool.queue.clear()
+        serversQueryReply.clear()
+#         while serversPool.qsize() != 0:
+#                 serversPool.get_nowait()
+        for serverIndex in range(0,active_servers.__len__()):
+            serversPool.put(active_servers[serverIndex][2])
+    
+###############################################################################
+##    Communication stuff starts here                                        ##
+###############################################################################
     def connect2SM(self):
         ipSM = self.txt_SMAddress.get() 
-        
         self.logger.debug('creating socket')
         soc_serverManager = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.logger.debug('connecting to server')
+        
         try:
             soc_serverManager.connect((ipSM, S_M_PORT))
         except Exception: 
             self.logger.debug('connection failed')
-        self.saveServerDetails((ipSM,S_M_PORT,soc_serverManager))
-        self.frameBuilder.assembleFrame(codes.getValue('clientHello')[0],"client says hello")
-        soc_serverManager.send(self.frameBuilder.getFrame())
-        self.readSocketForResponse(soc_serverManager)
+        
+        self.saveServerDetails((ipSM,S_M_PORT,soc_serverManager)) ##tuple format: (IP, PORT, Active Socket)
+
+        self.sayHelloToSM()
         self.getSTDservers()
+        self.getDBLength()
         
+        ##TODO move this.
+#         soc_serverManager.send(self.frameBuilder.getFrame()) ##
+#         self.readSocketForResponse(soc_serverManager)
         
+    
         
-        
-#         while True:
-#         # Echo the back to the client
-#             try:
-#                 data = self.soc_serverManager.recv(2)
-#                 if data == '' or len(data) == 0:
-#                     break
-#             except Exception: 
-#                 self.logger.debug('recv failed')
-#                 break
-#             #Got data Successfully
-#             self.recvOpcode = data[0] #first byte is op code
-#             size = data[1]
-#             try:
-#                 data = self.soc_serverManager.recv(size)
-#                 if data == '' or len(data) == 0:
-#                     break
-#             except Exception: 
-#                 self.logger.debug('recv data failed')
-#                 break
-#             self.payload = data
-#             self.logger.info("Received: %s %s",self.recvOpcode,self.payload )
-#             self.reponseHandler(self.recvOpcode,self.payload)
-#             break
-        
-        
-        
-        
-#         self.readSocketForResponse(self.soc_serverManager)
-            
     def readSocketForResponse(self,runnigSocket):
+        cur_thread = threading.currentThread()
+
         while True:
         # Echo the back to the client
             try:
@@ -223,19 +254,16 @@ class client_window(Frame):
                 self.logger.debug('recv data failed')
                 break
             self.payload = data
-            self.logger.info("Received: %s %s",self.recvOpcode,self.payload )
+            self.logger.info("%s Received: %s %s",cur_thread.getName(),self.recvOpcode,self.payload )
             self.reponseHandler(self.recvOpcode,self.payload)
             break
-        
-        
-        
-        
+             
     def reponseHandler(self,recvOpcode,msg):
         self.code = OpCodes.getCode(self, self.recvOpcode)
         
         if self.code == 'hello_ack':
             self.logger.info (self.code)
-            self.ServerConnected()
+            self.ServerConnected_icon()
         elif self.code == 'server_quantity_reply':
             self.logger.info (self.code)
             self.handleQuantityReply(msg)
@@ -245,26 +273,53 @@ class client_window(Frame):
             self.logger.info (self.code)
         elif self.code == 'db_length':
             self.logger.info (self.code)
+            self.handleDBLengthReply(msg)
         elif self.code == 'query_response':
             self.logger.info (self.code)
+            self.handleQueryReply(msg)
         elif self.code == 'ipAndPortReply':
             self.logger.info (self.code)
             self.handleIpAndPortReply(msg)
         else:
             self.logger.info("Bad opCode")        
     
-        
-        
-        
-        
-        
+            
+    def sayHelloToSM(self):
+        self.frameBuilder.assembleFrame(codes.getValue('clientHello')[0],"client says hello")
+        self.sendAndHandleResponse(active_servers[0][2])        
+    
+    def sayHelloToServer(self,activeTargetSocket):
+        self.frameBuilder.assembleFrame(codes.getValue('clientHello')[0],"client says hello")
+        self.sendAndHandleResponse(activeTargetSocket)  
+    
     def getSTDservers(self):
-        soc_serverManager = active_servers[0][2]
         self.frameBuilder.assembleFrame(codes.getValue('server_quantity_request')[0],"server quantity request")
-        soc_serverManager.send(self.frameBuilder.getFrame())
-        self.readSocketForResponse(soc_serverManager)
+        self.sendAndHandleResponse(active_servers[0][2])
+    
+    def getDBLength(self):
+        self.frameBuilder.assembleFrame(codes.getValue('db_length_request')[0],"DB length request")
+        self.sendAndHandleResponse(active_servers[0][2])
 
+    def sendQueries(self,query2Send):
+        t_frameBuilder = FrameBuilder()
+        while True:
+#             self.logger.info('%s Fetching socket from to queue ',threading.currentThread().getName())
+            targetSocket = serversPool.get(True)
+            t_frameBuilder.assembleFrame(codes.getValue('query')[0],str(query2Send))
+            targetSocket.send(t_frameBuilder.getFrame())
+            self.readSocketForResponse(targetSocket)
+#             self.sendAndHandleResponse(targetSocket)
+            serversPool.task_done()
+    
+    def sendAndHandleResponse(self,activeSocket):
+        activeSocket.send(self.frameBuilder.getFrame())
+        self.readSocketForResponse(activeSocket)
         
+    
+    
+###############################################################################
+##    Handling functions in this section                                     ##
+###############################################################################        
     def handleQuantityReply(self,msg):
         quantity = int(msg)
         soc_serverManager = active_servers[0][2]
@@ -272,55 +327,75 @@ class client_window(Frame):
             self.frameBuilder.assembleFrame(codes.getValue('ipAndPortRequest')[0],str(currentServer))
             soc_serverManager.send(self.frameBuilder.getFrame())
             self.readSocketForResponse(soc_serverManager)
-
-             
-             
+         
     def saveServerDetails(self,serverCredential):
         self.lock.acquire(blocking=True)
         active_servers[active_servers.__len__()] = serverCredential
         self.lock.release()
-        
-        
-        
+           
     def handleIpAndPortReply(self,msg):
         modifiedMsg = msg.decode('utf-8')
         try:
             index,stdIP,stdPort = modifiedMsg.split(':',3)
         except Exception: 
-                self.logger.debug('Bad ipAndPortRequest fromat')
+                self.logger.debug('Bad ipAndPortRequest format')
         
+        soc_stdServer=self.connect2Target((stdIP,int(stdPort)))
+        self.sayHelloToServer(soc_stdServer) 
         self.lock.acquire(blocking=True)
-        active_servers[int(index)] = (stdIP,int(stdPort))
+        active_servers[int(index)] = (stdIP,int(stdPort),soc_stdServer)
         self.lock.release()
         self.logger.debug('STD Server:%s on Port:%s was added in index:%s ', stdIP,stdPort,str(index))
+    
+    def handleQueryReply(self,msg):
+        serversQueryReply.append(msg)
+    
+    def handleDBLengthReply(self,msg):
+        modifiedMsg = msg.decode('utf-8')
+        DB_LENGTH = int(modifiedMsg)
+        self.configureDBScale(DB_LENGTH)
+        self.logger.info('Data base size is updated to:%s',DB_LENGTH )
+
+    def connect2Target(self,tu_address):
+        self.logger.debug('creating socket connection to %s' , tu_address)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.connect(tu_address)
+            return s
+#             connectedFlag = True
+        except Exception: 
+            self.logger.debug('connection to %s failed',tu_address)
         
+              
 if __name__ == "__main__":
     logger = logging.getLogger('Client')
     root = Tk()
     appWindownManager = client_window(root)
     root.mainloop()
-#     while True:
-#         sleep(1)
-#         print(int(time.time()%1000000))
-#     
-#     
+#     logger = logging.getLogger("Client computer")
+# 
+# #     while True:
+# #         sleep(1)
+# #         print(int(time.time()%1000000))
+# #      
+#      
 #     s_c = ('123',344)
 #     a_s = {1: ('123',344),2:('345',1254667)}
 #     whatreturned = [ k for k, element in a_s.items() if element == s_c]
 #     for key, element in a_s.items():  
 #         print(key,element)
-# 
-# 
-# 
+#  
+#  
+#  
 # #     p_bitstring = BitArray(hex(random.getrandbits(2**20)))
 # #     logger.debug('BitArray s: %s' ,p_bitstring)
-#     
+#      
 #     frameBuilder = FrameBuilder()
-#     ip, port = '192.168.2.121', 31100
+#     ip, port = '192.168.4.1', 31101
 # #     print (codes.get_code(b'242'))
-# 
+#  
 #     logger.info('Server on %s:%s', ip, port)
-#     
+#      
 #     # Connect to the server
 #     logger.debug('creating socket')
 #     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -331,10 +406,10 @@ if __name__ == "__main__":
 #     except Exception: 
 #         logger.debug('connection failed')
 #         connectedFlag = False
-#     frameBuilder.assembleFrame(codes.getValue('clientHello')[0],"")
+#     frameBuilder.assembleFrame(codes.getValue('clientHello')[0],"dfgsdf")
 #     s.send(frameBuilder.getFrame())
 #     while connectedFlag:
-# 
+#  
 #         message = input("Enter your message to the EchoServer: ")
 # #         print (codes.getValue('db_length')[0])
 #         frameBuilder.assembleFrame(codes.getValue('clientHello')[0],message)
@@ -344,7 +419,7 @@ if __name__ == "__main__":
 #         logger.debug('sending data: "%s"', message)
 #         len_sent = s.send(frameBuilder.getFrame())
 # #         len_sent = s.send('240')
-# 
+#  
 #         # Receive a response
 #         logger.debug('waiting for response')
 #         response = s.recv(len_sent + len(threading.currentThread().getName()) + 3)
@@ -352,7 +427,7 @@ if __name__ == "__main__":
 # #         print('response from server: ', response.encode("utf-8"))
 #         sleep(0.05)
 # #         connectedFlag = False
-# 
+#  
 #     # Clean up
 #     logger.debug('closing socket')
 #     s.close()

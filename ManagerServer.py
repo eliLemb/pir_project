@@ -21,7 +21,6 @@ import socketserver
 q_freeIndexs = queue.Queue()
 # logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
 active_servers = {}
-active_client = {}
 codes = OpCodes()
 WELCOME_PORT = 31100    
 
@@ -95,7 +94,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         serverCredential = modifiedPayload.split(':')
         insertIndex,reassigment = self.server.addServer2ActiveServers(serverCredential)
         self.serverInsertIndex = insertIndex
-        s_stdServer = self.connection_2_target((active_servers[insertIndex][0],active_servers[insertIndex][1]))
+        s_stdServer = self.connect2Target((active_servers[insertIndex][0],active_servers[insertIndex][1]))
         appWindownManager.addConnectedServerIcon(insertIndex,reassigment)
         if s_stdServer != None:
             self.assamble4ReplyHello(insertIndex,s_stdServer)
@@ -111,9 +110,10 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
    
     def handleClientConnection(self,msg):
 #         self.server.addClient(self.client_address)
-        appWindownManager.clientOnline()
+        
         super(T_ManagerRequestHandler,self).handleClientConnection(msg)
         appWindownManager.writeToScrolledConsole(msg)
+        appWindownManager.clientOnline()
 #         self.b_isClientConnected=True
 #         self.request.send(bytes(msg,"utf-8"))
 #         try:
@@ -137,10 +137,10 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         self.request.send(self.frameBuilder.getFrame())
 
     def assamble4DBLength(self):        
-        bitLength = ManagerServer.b_DB._getlength()
-        self.logger.info('DB length in bits: %s.',bitLength)
+        self.bitLength = self.server.getDBLength()
+        self.logger.info('DB length in bits: %s.',self.bitLength)
         self.logger.debug('reply ''db_length'' to %s ',self.request.getsockname())
-        self.frameBuilder.assembleFrame(codes.getValue('db_length')[0],str(bitLength))
+        self.frameBuilder.assembleFrame(codes.getValue('db_length')[0],str(self.bitLength))
     
     
     def handleIpAndPortRequest(self,msg):
@@ -157,10 +157,8 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         
         
         
-        
-        
-        
-        
+    
+
     def killThisServer(self):
         pass
 #         self.finish()
@@ -193,6 +191,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
             self.handleDBLengthReq()
         elif code == 'query':
             self.logger.info (code)
+            self.handleQuery(msg)
         elif code == 'query_response':
             self.logger.info (code)
         elif code == 'ipAndPortRequest':
@@ -210,7 +209,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
             self.logger.info("Bad opCode")
 
        
-    def connection_2_target(self,tu_address):
+    def connect2Target(self,tu_address):
         self.logger.debug('creating socket connection to %s' , tu_address)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -224,7 +223,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         
         
 class ManagerServer(PIRServerBasic):
-    lock = RLock()
+    
     
     def __init__(self, log_name, handler_class=T_ManagerRequestHandler):
         ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
@@ -294,10 +293,7 @@ class ManagerServer(PIRServerBasic):
             self.toCleanIndex.clear()        
     
     
-    def addClient(self,clientAddres):
-        self.lock.acquire(blocking=True)
-        active_client[active_client.__len__()] = (clientAddres,int(time.time()%1000000))
-        self.lock.release()
+
         
     def shutdown(self):
         appWindownManager.disableBtnStopServer()

@@ -2,8 +2,13 @@
 
 import logging
 import socketserver
+import time
+
 import threading
 import socket
+
+from threading import RLock
+
 from OpCodes import OpCodes
 from FrameBuilder import FrameBuilder
 from bitstring import BitArray
@@ -14,7 +19,6 @@ codes = OpCodes()
 port = 0    
 # IP_CACHE = {'server1' : ('192.168.4.1',port)}
 class ThreadedRequestHandler(socketserver.BaseRequestHandler):
-    from threading import RLock
     frameBuilder = FrameBuilder()
     logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
 
@@ -28,6 +32,9 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
         return
     
+    def setDB(self,cpy_DB):
+        self.b_DB = cpy_DB
+        
     def setup(self):
         self.logger.debug('setup')
         return socketserver.BaseRequestHandler.setup(self)
@@ -90,12 +97,31 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     
     
     
+    
+    def handleQuery(self,msg):
+        queryPayload = bin(int(msg))
+        queryPayloadResponse = self.calacPIRResponse(queryPayload)
+        self.assambleQueryResponse(queryPayloadResponse)
+        self.request.send(self.frameBuilder.getFrame())
+    
+    
+    
+    def assambleQueryResponse(self,payload):
+        self.frameBuilder.assembleFrame(codes.getValue('query_response')[0],str(payload))
+        
+    ##### PIR algorithm comes here    
+    def calacPIRResponse(self,data):
+        return int(data,2)<<1 
+    
+    
         
 class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
+    lock = RLock()
+    active_client = {}
     HELLO_INTERVAL = 20
     TIME_TO_LIVE = 45
     frameBuilder = FrameBuilder()
-    dbLengthMB = 1
+    dbLengthMB = 2
     b_DB = BitArray()
     c_MB = 2**20
     logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
@@ -149,6 +175,15 @@ class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
     def activate(self,name,ipAddress,port):
         self.logger = logging.getLogger(name)
         self.logger.info("running at %s listens to port: %s ", ipAddress,port)
+    
+    def addClient(self,clientAddres):
+        self.lock.acquire(blocking=True)
+        self.active_client[self.active_client.__len__()] = (clientAddres,int(time.time()%1000000))
+        self.lock.release()
+    
+        
+    def getDBLength(self):
+        return self.b_DB._getlength()
 #         tup_socket = (ipAddress, port) # let the kernel give us a port, tuple of the address and port
 #         server = PIRServerBasic('STD_PirServer',tup_socket, ThreadedRequestHandler)
 #         t = threading.Thread(target=server.serve_forever)

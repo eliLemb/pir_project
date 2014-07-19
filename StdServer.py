@@ -51,6 +51,7 @@ class T_StdRequestHandler(ThreadedRequestHandler):
             self.logger.info (code)
         elif code == 'query':
             self.logger.info (code)
+            self.handleQuery(msg)
         elif code == 'query_response':
             self.logger.info (code)
         elif code == 'terminate':
@@ -61,18 +62,30 @@ class T_StdRequestHandler(ThreadedRequestHandler):
             self.logger.info (code)
         elif code == 'clientHello':
             self.logger.info (code)
+            self.handleClientConnection(msg)
         else:
             self.logger.info("Bad opCode")
 
-
-
+    
+    def finish(self):
+        if (self.b_isClientConnected == True):
+            self.logger.debug('Client disconnected')
+            appWindownManager.clientOffline()        
+        return ThreadedRequestHandler.finish(self)
+    
+    
+    def handleClientConnection(self,msg):
+#         appWindownManager.clientOnline()
+        
+        super(T_StdRequestHandler,self).handleClientConnection(msg)
+        appWindownManager.clientOnline()
 
 class StdServer(PIRServerBasic):
     managerServerAddresPort = ('192.168.4.1',31100)
     WELCOME_PORT = 31101    
 
     def __init__(self, log_name, handler_class=T_StdRequestHandler):
-        self.selfIPAddress = [(s.connect(('192.168.4.1', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        self.selfIPAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
         self.tup_socket = (self.selfIPAddress, self.WELCOME_PORT) # let the kernel give us a port, tuple of the address and port
 #         self.selfIPAddress = server_address[0]
 #         self.selfPort = server_address[1]
@@ -227,7 +240,7 @@ class STD_window(Frame):
     def startUp(self):
 #         ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
         try:
-            self.o_standardServer = StdServer('Manager_Server', T_StdRequestHandler)
+            self.o_standardServer = StdServer('STD_Server', T_StdRequestHandler)
             self.o_standardServer.activate() 
         except:
 #             self.o_standardServer.logger.debug('Something went wrong. Change port.')
