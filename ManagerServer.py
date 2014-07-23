@@ -153,7 +153,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         index = str(requestedIndex)
         ip = tup_serverCredential[0]
         port = str(tup_serverCredential[1]) 
-        self.frameBuilder.assembleFrame(codes.getValue('ipAndPortReply')[0],index+":"+ip+":"+port)
+        self.frameBuilder.assembleFrame(codes.getValue('ip_and_port_reply')[0],index+":"+ip+":"+port)
         
         
         
@@ -170,7 +170,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
     def handleMsg(self,recvOpcode,msg):
         code = OpCodes.getCode(self, recvOpcode)
             
-        if code == 'serverHello':
+        if code == 'server_hello':
             self.logger.info(code)
             self.handleHello(msg)
         elif code == 'hello_ack':
@@ -189,20 +189,25 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
         elif code == 'db_length_request':
             self.logger.info (code)
             self.handleDBLengthReq()
-        elif code == 'query':
+        elif code == 'pir_query':
             self.logger.info (code)
             self.handleQuery(msg)
-        elif code == 'query_response':
+        elif code == 'std_query':
             self.logger.info (code)
-        elif code == 'ipAndPortRequest':
+            self.handleQuery(msg)
+        elif code == 'pir_query_reply':
+            self.logger.info (code)    
+        elif code == 'std_query_reply':
+            self.logger.info (code)
+        elif code == 'ip_and_port_request':
             self.logger.info (code)
             self.handleIpAndPortRequest(msg)
-        elif code == 'ipAndPortReply':
+        elif code == 'ip_and_port_reply':
             self.logger.info (code)
         elif code == 'terminate':
             self.logger.info (code)
             self.killThisServer()
-        elif code == 'clientHello':
+        elif code == 'client_hello':
             self.logger.info (code)
             self.handleClientConnection(msg)
         else:
@@ -244,6 +249,8 @@ class ManagerServer(PIRServerBasic):
         self.genarateDB()
         appWindownManager.disableBtnStartServer()
         appWindownManager.enableBtnStopServer()
+        t_managerServer.setDaemon(True)
+        t_cleanDeadServers.setDaemon(True)
         t_managerServer.start()
         t_cleanDeadServers.start()
 
@@ -371,10 +378,10 @@ class SM_window(Frame):
 #         self.left_frame = Frame(self.top_frame) ###
 #         self.left_frame.pack(side=LEFT,anchor=W,fill=Y)  ###
         
-        self.btn_startServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.startUp, image=self.icn_startServer, style='TButton', text="Start Server ",width=button_width )
+        self.btn_startServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickStartUp, image=self.icn_startServer, style='TButton', text="Start Server ",width=button_width )
         self.btn_startServer.grid(row=0,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
         
-        self.btn_stopServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.stopServer, image=self.icn_stopServer, style='TButton', text="Stop Server ",width=button_width )
+        self.btn_stopServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickStopServer, image=self.icn_stopServer, style='TButton', text="Stop Server ",width=button_width )
         self.btn_stopServer.grid(row=1,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
         self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
@@ -417,13 +424,16 @@ class SM_window(Frame):
 #         self.addConnectedServerIcon(3)
 #         self.addConnectedServerIcon(4)
 
-    def startUp(self):
+    def clickStartUp(self):
 #         ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
         self.o_serverManager = ManagerServer('Manager_Server', T_ManagerRequestHandler) 
         self.o_serverManager.activate()
         
-    def stopServer(self):
+    def clickStopServer(self):
         self.o_serverManager.shutdown()
+        self.o_serverManager.server_close()
+        
+        
     
     def addConnectedServerIcon(self,position,reassigment):
         if reassigment==False:
@@ -441,13 +451,13 @@ class SM_window(Frame):
             self.o_serverManager.logger.debug('Label remove failed')
     
     def enableBtnStopServer(self):
-        self.btn_stopServer.state(["!disabled"])   # Disable the stop button.
+        self.btn_stopServer.state(["!disabled"])   # Enable the stop button.
         
     def disableBtnStopServer(self):
         self.btn_stopServer.state(["disabled"])   # Disable the stop button.
     
     def enableBtnStartServer(self):
-        self.btn_startServer.state(["!disabled"])   # Disable the stop button.
+        self.btn_startServer.state(["!disabled"])   # Enable the stop button.
         
     def disableBtnStartServer(self):
         self.btn_startServer.state(["disabled"])   # Disable the stop button.
@@ -462,8 +472,12 @@ class SM_window(Frame):
         pass
     
     def clickExit(self): 
-        self.o_serverManager.shutdown()
-        self.myParent.destroy()     
+        try:
+            self.o_serverManager.shutdown()
+            self.o_serverManager.server_close()
+        finally:
+            
+            self.myParent.destroy()     
 
 
     def writeToScrolledConsole(self,msg):
@@ -574,6 +588,7 @@ class SM_window(Frame):
 
 
 
+from time import sleep
 
 
 if __name__ == '__main__':
@@ -586,13 +601,21 @@ if __name__ == '__main__':
     appWindownManager = SM_window(root)
     root.mainloop()
     
-    
-#      
-    
-    
-    
-    
-    
+#     o_serverManager = ManagerServer('Manager_Server', T_ManagerRequestHandler) 
+# 
+#     t_managerServer = threading.Thread(target=o_serverManager.serve_forever)
+#     t_managerServer.setDaemon(True)
+#     t_managerServer.start()
+# 
+#     sleep(10)
+#     o_serverManager.shutdown()
+#     o_serverManager = ManagerServer('Manager_Server', T_ManagerRequestHandler) 
+# 
+#     t_managerServer = threading.Thread(target=o_serverManager.serve_forever)
+#     t_managerServer.setDaemon(True)
+#     t_managerServer.start()
+#     sleep(10)
+#     o_serverManager.shutdown()
     
     
     

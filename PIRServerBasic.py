@@ -100,6 +100,7 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     
     def handleQuery(self,msg):
         queryPayload = bin(int(msg))
+        self.logger.info("Query is: %s", int(queryPayload,2))
         queryPayloadResponse = self.calacPIRResponse(queryPayload)
         self.assambleQueryResponse(queryPayloadResponse)
         self.request.send(self.frameBuilder.getFrame())
@@ -107,7 +108,7 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     
     
     def assambleQueryResponse(self,payload):
-        self.frameBuilder.assembleFrame(codes.getValue('query_response')[0],str(payload))
+        self.frameBuilder.assembleFrame(codes.getValue('pir_query_reply')[0],str(payload))
         
     ##### PIR algorithm comes here    
     def calacPIRResponse(self,data):
@@ -137,13 +138,18 @@ class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
         socketserver.TCPServer.server_activate(self)
         return
        
-    def serve_forever(self):
-        self.logger.debug('waiting for request')
-#         self.logger.info('Handling requests, press <Ctrl-C> to quit')
-        while True:
-            self.handle_request()
-        return
        
+    def serve_forever(self, poll_interval=0.5):
+        self.logger.debug('waiting for request')
+        return socketserver.TCPServer.serve_forever(self)
+       
+#     def serve_forever(self):
+#         self.logger.debug('waiting for request')
+# #         self.logger.info('Handling requests, press <Ctrl-C> to quit')
+#         while True:
+#             self.handle_request()
+#         return
+#        
     def handle_request(self):
         self.logger.debug('handle_request')
         return socketserver.TCPServer.handle_request(self)

@@ -33,7 +33,7 @@ class T_StdRequestHandler(ThreadedRequestHandler):
     def handleMsg(self,recvOpcode,msg):
         code = OpCodes.getCode(self, recvOpcode)
             
-        if code == 'serverHello':
+        if code == 'server_hello':
             self.logger.info(code)
         elif code == 'hello_ack':
             self.logger.info (code)
@@ -49,18 +49,23 @@ class T_StdRequestHandler(ThreadedRequestHandler):
             self.logger.info (code)
         elif code == 'db_length_request':
             self.logger.info (code)
-        elif code == 'query':
+        elif code == 'pir_query':
             self.logger.info (code)
             self.handleQuery(msg)
-        elif code == 'query_response':
+        elif code == 'std_query':
+            self.logger.info (code)
+            self.handleQuery(msg)
+        elif code == 'pir_query_reply':
+            self.logger.info (code)
+        elif code == 'std_query_reply':
             self.logger.info (code)
         elif code == 'terminate':
             self.logger.info (code)
-        elif code == 'ipAndPortRequest':
+        elif code == 'ip_and_port_request':
             self.logger.info (code)
-        elif code == 'ipAndPortReply':
+        elif code == 'ip_and_port_reply':
             self.logger.info (code)
-        elif code == 'clientHello':
+        elif code == 'client_hello':
             self.logger.info (code)
             self.handleClientConnection(msg)
         else:
@@ -83,12 +88,13 @@ class T_StdRequestHandler(ThreadedRequestHandler):
 class StdServer(PIRServerBasic):
     managerServerAddresPort = ('192.168.4.1',31100)
     WELCOME_PORT = 31101    
-
+    
     def __init__(self, log_name, handler_class=T_StdRequestHandler):
         self.selfIPAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
         self.tup_socket = (self.selfIPAddress, self.WELCOME_PORT) # let the kernel give us a port, tuple of the address and port
 #         self.selfIPAddress = server_address[0]
 #         self.selfPort = server_address[1]
+        self.toKillKeepAliveThread = True
         self.log_name = log_name
         return PIRServerBasic.__init__(self, log_name, self.tup_socket, handler_class=handler_class)
     
@@ -106,26 +112,33 @@ class StdServer(PIRServerBasic):
 
 #         PIRServerBasic.activate(self,name, ipAddress, port)
         super(StdServer,self).activate(self.log_name, self.tup_socket[0], self.tup_socket[1])
-        t = threading.Thread(target=self.serve_forever)
-        t_KeepAlive = threading.Thread(target = self.KeepAliveSendHello)
-        t.start()
+        self.e_KeepAliveStop = threading.Event() #Object event will be used to stop the keep alive thread
+        
+        t_stdServer = threading.Thread(target=self.serve_forever)
+        t_KeepAlive = threading.Thread(target=self.KeepAliveSendHello, args=(self.e_KeepAliveStop,))
+        
+        t_stdServer.setDaemon(True)
+        t_KeepAlive.setDaemon(True)
+        
+        t_stdServer.start()
         t_KeepAlive.start()
         appWindownManager.disableBtnStartServer()
         appWindownManager.enableBtnStopServer()
         
         
-    def KeepAliveSendHello(self):
+    def KeepAliveSendHello(self,stopEvent):
         attempts = 0
         s_openToManager = self.connection_2_Manager()
-        while attempts<3:
+        while ( attempts<3) :
+            if(self.e_KeepAliveStop.isSet()):
+                break
             if s_openToManager != None:
                 self.send_hello_2_manager(s_openToManager)
-                sleep(StdServer.HELLO_INTERVAL)
             else:
                 self.logger.info('connection to Manager Server failed')
                 self.logger.info('Attempt: %s ',attempts+1)
-                attempts = attempts +1
-                sleep(StdServer.HELLO_INTERVAL * 3)
+                attempts = attempts + 1
+            stopEvent.wait(StdServer.HELLO_INTERVAL)
 #                 self.server_close()
 #                 break
     
@@ -142,14 +155,18 @@ class StdServer(PIRServerBasic):
             
     def send_hello_2_manager(self,s_openToManager):
         self.logger.debug(self.selfIPAddress)
-        self.frameBuilder.assembleFrame(codes.getValue('serverHello')[0], self.selfIPAddress + ":" + str(self.WELCOME_PORT))
+        self.frameBuilder.assembleFrame(codes.getValue('server_hello')[0], self.selfIPAddress + ":" + str(self.WELCOME_PORT))
         self.logger.debug('sending ''serverHello'' to Manager_Server')
         s_openToManager.send(bytes(self.frameBuilder.getFrame()))
-#         while True:
 
-#             s_openToManager.recv()        
-#         T_StdRequestHandler.handle(self)
-        
+
+    def shutdown(self):
+        appWindownManager.disableBtnStopServer()
+        appWindownManager.enableBtnStartServer()
+        self.toKillKeepAliveThread = False
+        self.e_KeepAliveStop.set()
+        return PIRServerBasic.shutdown(self) 
+      
     def die(self):
 #         raise Exception("Oopsy")
         self.logger.debug('EXIT')
@@ -163,7 +180,7 @@ class StdServer(PIRServerBasic):
 
 
 class STD_window(Frame):
-    o_serverManager=None
+    o_standardServer=None
     def __init__(self, parent):
         self.myParent = parent 
         self.myParent.title('Standard Server')
@@ -249,7 +266,8 @@ class STD_window(Frame):
         
         
     def stopServer(self):
-        self.o_serverManager.shutdown()
+        self.o_standardServer.shutdown()
+        self.o_standardServer.server_close()
     
     def enableBtnStopServer(self):
         self.btn_stopServer.state(["!disabled"])   # Disable the stop button.
@@ -277,7 +295,7 @@ class STD_window(Frame):
         pass
     
     def clickExit(self): 
-        self.o_serverManager.shutdown()
+        self.o_standardServer.shutdown()
         self.myParent.destroy()     
 
 

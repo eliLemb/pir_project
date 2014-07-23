@@ -30,7 +30,6 @@ from threading import RLock
 from queue import Queue
 from threading import Thread
 
-
 '''''
 http://python.about.com/od/python30/ss/30_strings_3.htm
 '''''
@@ -143,9 +142,13 @@ class client_window(Frame):
        
     def updatDesiedBit(self,value):    
         self.lbl_bitIndex.configure(text= str(int(float(value))))
+    
     def clickConnect(self): 
         self.t_SMConnection = threading.Thread(target = self.connect2SM)
+        self.t_SMConnection.setDaemon(True)
         self.t_SMConnection.start()
+        self.btn_connect.state(["disabled"])
+        
         
         
 #         
@@ -203,7 +206,7 @@ class client_window(Frame):
 #         while serversPool.qsize() != 0:
 #                 serversPool.get_nowait()
         for serverIndex in range(0,active_servers.__len__()):
-            serversPool.put(active_servers[serverIndex][2])
+            serversPool.put((active_servers[serverIndex][2],int(self.scl_bitChoice.get())))
     
 ###############################################################################
 ##    Communication stuff starts here                                        ##
@@ -222,9 +225,9 @@ class client_window(Frame):
         self.saveServerDetails((ipSM,S_M_PORT,soc_serverManager)) ##tuple format: (IP, PORT, Active Socket)
 
         self.sayHelloToSM()
-        self.getSTDservers()
         self.getDBLength()
-        
+        self.getSTDservers()
+
         ##TODO move this.
 #         soc_serverManager.send(self.frameBuilder.getFrame()) ##
 #         self.readSocketForResponse(soc_serverManager)
@@ -274,10 +277,13 @@ class client_window(Frame):
         elif self.code == 'db_length':
             self.logger.info (self.code)
             self.handleDBLengthReply(msg)
-        elif self.code == 'query_response':
+        elif self.code == 'pir_query_reply':
+            self.logger.info (self.code)
+            self.handleQueryReply(msg)    
+        elif self.code == 'std_query_reply':
             self.logger.info (self.code)
             self.handleQueryReply(msg)
-        elif self.code == 'ipAndPortReply':
+        elif self.code == 'ip_and_port_reply':
             self.logger.info (self.code)
             self.handleIpAndPortReply(msg)
         else:
@@ -285,11 +291,11 @@ class client_window(Frame):
     
             
     def sayHelloToSM(self):
-        self.frameBuilder.assembleFrame(codes.getValue('clientHello')[0],"client says hello")
+        self.frameBuilder.assembleFrame(codes.getValue('client_hello')[0],"client says hello")
         self.sendAndHandleResponse(active_servers[0][2])        
     
     def sayHelloToServer(self,activeTargetSocket):
-        self.frameBuilder.assembleFrame(codes.getValue('clientHello')[0],"client says hello")
+        self.frameBuilder.assembleFrame(codes.getValue('client_hello')[0],"client says hello")
         self.sendAndHandleResponse(activeTargetSocket)  
     
     def getSTDservers(self):
@@ -304,8 +310,9 @@ class client_window(Frame):
         t_frameBuilder = FrameBuilder()
         while True:
 #             self.logger.info('%s Fetching socket from to queue ',threading.currentThread().getName())
-            targetSocket = serversPool.get(True)
-            t_frameBuilder.assembleFrame(codes.getValue('query')[0],str(query2Send))
+            (targetSocket,query2Send) = serversPool.get(True)
+            
+            t_frameBuilder.assembleFrame(codes.getValue('pir_query')[0],str(query2Send))
             targetSocket.send(t_frameBuilder.getFrame())
             self.readSocketForResponse(targetSocket)
 #             self.sendAndHandleResponse(targetSocket)
@@ -324,7 +331,7 @@ class client_window(Frame):
         quantity = int(msg)
         soc_serverManager = active_servers[0][2]
         for currentServer in range(1, quantity):
-            self.frameBuilder.assembleFrame(codes.getValue('ipAndPortRequest')[0],str(currentServer))
+            self.frameBuilder.assembleFrame(codes.getValue('ip_and_port_request')[0],str(currentServer))
             soc_serverManager.send(self.frameBuilder.getFrame())
             self.readSocketForResponse(soc_serverManager)
          
