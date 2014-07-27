@@ -3,6 +3,8 @@ from PIRServerBasic import ThreadedRequestHandler
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
+from PIL import ImageTk
+
 import logging
 import threading
 import socket
@@ -122,6 +124,7 @@ class StdServer(PIRServerBasic):
         
         t_stdServer.start()
         t_KeepAlive.start()
+        
         appWindownManager.disableBtnStartServer()
         appWindownManager.enableBtnStopServer()
         
@@ -208,15 +211,15 @@ class STD_window(Frame):
         self.style.configure('TButton', font=("Arial", 12,'bold'))#larger Font for buttons
         self.style.configure('TCombobox', font=("Arial", 12,'bold'))#larger Font for buttons
         
-        self.icn_startServer = PhotoImage(file="icons/TurnOn.png")
-        self.icn_stopServer = PhotoImage(file="icons/TurnOff.png")
-        self.icn_query = PhotoImage(file="icons/question2.png")
-        self.icn_write = PhotoImage(file="icons/Document.png")
-        self.icn_exit = PhotoImage(file="icons/exit.png")
+        self.icn_startServer = ImageTk.PhotoImage(file="icons/TurnOn.png")
+        self.icn_stopServer = ImageTk.PhotoImage(file="icons/TurnOff.png")
+        self.icn_query = ImageTk.PhotoImage(file="icons/question2.png")
+        self.icn_write = ImageTk.PhotoImage(file="icons/Document.png")
+        self.icn_exit = ImageTk.PhotoImage(file="icons/exit.png")
 
-        self.icn_serverConnected = PhotoImage(file="icons/Computer24.png")
-        self.icn_userOnline = PhotoImage(file="icons/UserOnline.png")
-        self.icn_userOffline = PhotoImage(file="icons/UserOffline.png")
+        self.icn_serverConnected = ImageTk.PhotoImage(file="icons/Computer24.png")
+        self.icn_userOnline = ImageTk.PhotoImage(file="icons/UserOnline.png")
+        self.icn_userOffline = ImageTk.PhotoImage(file="icons/UserOffline.png")
         
 
         self.cb_listenPort = ttk.Combobox(self.masterFrame, textvariable=StdServer.WELCOME_PORT, style='TCombobox')

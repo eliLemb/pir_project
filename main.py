@@ -29,6 +29,9 @@ from tkinter.scrolledtext import *
 from threading import RLock
 from queue import Queue
 from threading import Thread
+from PIL import ImageTk
+import numpy as np
+import matplotlib as plt
 
 '''''
 http://python.about.com/od/python30/ss/30_strings_3.htm
@@ -81,11 +84,11 @@ class client_window(Frame):
         self.style.configure('TButton', font=("Arial", 8,'bold'))#larger Font for buttons
         self.style.configure('TLabel', font=("Arial", 10,'bold'))#larger Font for buttons
         
-        self.icn_SM_disconnected = PhotoImage(file="icons/Red-icon32.png")
-        self.icn_SM_connected = PhotoImage(file="icons/Green-icon32.png")
-        self.icn_compare = PhotoImage(file="icons/compare24.png")
-        self.icn_query = PhotoImage(file="icons/download24.png")
-        self.icn_exit = PhotoImage(file="icons/exit24.png")
+        self.icn_SM_disconnected = ImageTk.PhotoImage(file="icons/Red-icon32.png")
+        self.icn_SM_connected = ImageTk.PhotoImage(file="icons/Green-icon32.png")
+        self.icn_compare = ImageTk.PhotoImage(file="icons/compare24.png")
+        self.icn_query = ImageTk.PhotoImage(file="icons/download24.png")
+        self.icn_exit = ImageTk.PhotoImage(file="icons/exit24.png")
 
         self.lbl_SMAddress = ttk.Label(self.masterFrame, compound=LEFT, style='TLabel', text="Server manager address: " )
         self.lbl_SMAddress.grid(row=0,column=0, columnspan=2, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W))
@@ -125,7 +128,7 @@ class client_window(Frame):
         self.lbl_result.grid(row=7,column=7, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(E))
         
        
-        self.btn_compare = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickConnect, style='TButton', text="Compare ", image=self.icn_compare, width=button_width )
+        self.btn_compare = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickCompare, style='TButton', text="Compare ", image=self.icn_compare, width=button_width )
         self.btn_compare.grid(row=8,column=0, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W))
         
         self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, style='TButton', text="Exit ", image=self.icn_exit, width=button_width )
@@ -207,7 +210,20 @@ class client_window(Frame):
 #                 serversPool.get_nowait()
         for serverIndex in range(0,active_servers.__len__()):
             serversPool.put((active_servers[serverIndex][2],int(self.scl_bitChoice.get())))
-    
+            
+            
+            
+    def clickCompare(self):
+        
+        n, bins, patches = plt.hist(5, 50, normed=1, facecolor='g', alpha=0.75)
+        plt.xlabel('Smarts')
+        plt.ylabel('Probability')
+        plt.title('Histogram of IQ')
+        plt.text(60, .025, r'$\mu=100,\ \sigma=15$')
+        plt.axis([40, 160, 0, 0.03])
+        plt.grid(True)
+        plt.show()
+
 ###############################################################################
 ##    Communication stuff starts here                                        ##
 ###############################################################################

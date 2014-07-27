@@ -8,6 +8,7 @@ import time
 from tkinter import *
 from tkinter import ttk
 from tkinter.scrolledtext import *
+from PIL.ImageTk import PhotoImage
 
 from FrameBuilder import FrameBuilder
 from OpCodes import OpCodes
@@ -359,6 +360,8 @@ class SM_window(Frame):
         self.style = ttk.Style(self.myParent)
         self.style.configure('TButton', font=("Arial", 12,'bold'))#larger Font for buttons
         
+#         self.obj_serverConnected = Image.open("icons/Computer24.png")
+        
         self.icn_startServer = PhotoImage(file="icons/TurnOn.png")
         self.icn_stopServer = PhotoImage(file="icons/TurnOff.png")
         self.icn_query = PhotoImage(file="icons/question2.png")
@@ -396,6 +399,9 @@ class SM_window(Frame):
         self.txt_scrolledConsole = ScrolledText(self.masterFrame, wrap=WORD, undo=True, setgrid=True)
         self.txt_scrolledConsole.grid(row=0,column=6, columnspan=1, rowspan=5, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W))
         
+        self.cnvs_connectedServersIcons = Canvas(self.masterFrame,width=160, height=32)
+        self.cnvs_connectedServersIcons.grid(row=6, column=self.l_serversConectedIcons.__len__()+1)
+        
         ### right_frame z
 #         self.right_frame = Frame(self.top_frame)
 #         self.right_frame.pack(side=RIGHT,anchor=E)  ###
@@ -415,7 +421,6 @@ class SM_window(Frame):
 #         self.button1.bind("<Return>", self.button1Click_a)  
         
         
-        
         self.lbl_userSts = Label(self.masterFrame, image=self.icn_userOffline)
         self.lbl_userSts.grid(row=6, column=6, sticky=(E))
         self.disableBtnStopServer()
@@ -423,6 +428,7 @@ class SM_window(Frame):
 #         self.addConnectedServerIcon(2)
 #         self.addConnectedServerIcon(3)
 #         self.addConnectedServerIcon(4)
+        
 
     def clickStartUp(self):
 #         ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
@@ -437,16 +443,20 @@ class SM_window(Frame):
     
     def addConnectedServerIcon(self,position,reassigment):
         if reassigment==False:
-            lbl_serverConnected = Label(self.masterFrame, image=self.icn_serverConnected)
-            lbl_serverConnected.grid(row=6, column=self.l_serversConectedIcons.__len__()+1)
+            
+            iconID = self.cnvs_connectedServersIcons.create_image(32*self.l_serversConectedIcons.__len__()+5,5, image=self.icn_serverConnected,anchor = NW)
+#             lbl_serverConnected = Label(self.masterFrame, image=self.icn_serverConnected)
+#             lbl_serverConnected.grid(row=6, column=self.l_serversConectedIcons.__len__()+1)
 #             self.o_serverManager.logger.debug('Grid position: %s',self.l_serversConectedIcons.__len__())
-
+            
 #         self.rowCounter = self.rowCounter+1
-            self.l_serversConectedIcons.append(lbl_serverConnected)
+            self.l_serversConectedIcons.append(iconID)
+#             sleep(10)
+#             lbl_serverConnected.destroy()
     
     def removeConnectedServerIcon(self):
         try:
-            self.l_serversConectedIcons.pop().destroy()
+            self.canvas.delete(self.l_serversConectedIcons.pop())
         except:
             self.o_serverManager.logger.debug('Label remove failed')
     
