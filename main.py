@@ -21,18 +21,15 @@
 # 
 # if __name__ == "__main__":
 #     main()
-from _ctypes import sizeof
 
 from tkinter import *
 from tkinter import ttk
-from tkinter.scrolledtext import *
 from threading import RLock
 from queue import Queue
 from threading import Thread
 from PIL import ImageTk
 import numpy as np
-import matplotlib as plt
-
+import matplotlib.pyplot as plt
 '''''
 http://python.about.com/od/python30/ss/30_strings_3.htm
 '''''
@@ -50,17 +47,17 @@ import time
 logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)
 codes = OpCodes()
 S_M_PORT = 31100
-DB_LENGTH = 500   
 active_servers = {}
 serversPool = Queue()
 serversQueryReply = list()
 
 class client_window(Frame):
+    
     frameBuilder = FrameBuilder()
     lock = RLock()
     def __init__(self, parent):
         self.logger = logging.getLogger("Client computer")
-
+        self.DB_LENGTH = 500
         self.queryMethod=IntVar()
         self.desirableBit=0
         self.myParent = parent 
@@ -114,8 +111,9 @@ class client_window(Frame):
         self.chk_regular = ttk.Radiobutton(self.masterFrame, text='Standard', variable=self.queryMethod, value=2)
         self.chk_regular.grid(row=4,column=0,columnspan=2, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W, S))
         
-        self.scl_bitChoice = ttk.Scale(self.masterFrame, orient=HORIZONTAL, from_=1.0, to=DB_LENGTH,command=self.updatDesiedBit)
+        self.scl_bitChoice = ttk.Scale(self.masterFrame, orient=HORIZONTAL, from_=1.0, to=self.DB_LENGTH,command=self.updatDesiedBit)
         self.scl_bitChoice.grid(row=5, column=0, columnspan=8, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady,sticky=(W,E))
+        self.scl_bitChoice.state(["disabled"])   # Disable the scale bar.
         
         self.lbl_bitIndex = ttk.Label(self.masterFrame, compound=CENTER,  style='TLabel' , text = '1')
         self.lbl_bitIndex.grid(row=6,column=1, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W,E))
@@ -124,7 +122,7 @@ class client_window(Frame):
         self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickQuery, style='TButton', text="Get value ",image=self.icn_query, width=button_width )
         self.btn_query.grid(row=7,column=0, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W))
          
-        self.lbl_result = ttk.Label(self.masterFrame, compound=CENTER, style='TLabel', text='XX',justify=LEFT)
+        self.lbl_result = ttk.Label(self.masterFrame, compound=CENTER, style='TLabel', text='XX',justify=CENTER)
         self.lbl_result.grid(row=7,column=7, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(E))
         
        
@@ -151,6 +149,7 @@ class client_window(Frame):
         self.t_SMConnection.setDaemon(True)
         self.t_SMConnection.start()
         self.btn_connect.state(["disabled"])
+        self.enableScale()
         
         
         
@@ -160,7 +159,9 @@ class client_window(Frame):
     def ServerDisconnected_icon(self):
         self.lbl_connectionSts.config(image=self.icn_SM_disconnected)
         
-       
+    def enableScale(self):
+        self.scl_bitChoice.state(["!disabled"])   # Enable the scale bar.
+
     
     
     def clickExit(self):
@@ -201,7 +202,12 @@ class client_window(Frame):
         self.logger.info("All threads returned")
         if(serversQueryReply.__len__() == active_servers.__len__()):
             self.logger.info("All servers replied to the query")
-        
+            self.writeResultToLabel()
+    
+    
+    def writeResultToLabel(self):
+        toWrite = serversQueryReply.pop() 
+        self.lbl_result.configure(text=toWrite,justify=LEFT)  
     
     def pushServersIntoQueue(self):
         serversPool.queue.clear()
@@ -215,15 +221,20 @@ class client_window(Frame):
             
     def clickCompare(self):
         
-        n, bins, patches = plt.hist(5, 50, normed=1, facecolor='g', alpha=0.75)
-        plt.xlabel('Smarts')
-        plt.ylabel('Probability')
-        plt.title('Histogram of IQ')
-        plt.text(60, .025, r'$\mu=100,\ \sigma=15$')
-        plt.axis([40, 160, 0, 0.03])
-        plt.grid(True)
-        plt.show()
+        N = 2
+        queryResult = bin(int(self.lbl_result.cget("text")))
+        results = (active_servers.__len__()*len(str(queryResult))-2,self.DB_LENGTH)
+        ind = np.arange(N)    # the x locations for the groups
+        width = 0.1       # the width of the bars: can also be len(x) sequence
 
+        plt.bar(ind, results, width, color='r')
+        plt.bar(ind, results, width, color='g')
+        
+        plt.ylabel('Bytes')
+        plt.title('PIR vs. non PIR data transfer')
+        plt.xticks(ind+width/2., ('PIR','regular') )
+
+        plt.show()
 ###############################################################################
 ##    Communication stuff starts here                                        ##
 ###############################################################################
@@ -375,9 +386,9 @@ class client_window(Frame):
     
     def handleDBLengthReply(self,msg):
         modifiedMsg = msg.decode('utf-8')
-        DB_LENGTH = int(modifiedMsg)
-        self.configureDBScale(DB_LENGTH)
-        self.logger.info('Data base size is updated to:%s',DB_LENGTH )
+        self.DB_LENGTH = int(modifiedMsg)
+        self.configureDBScale(self.DB_LENGTH)
+        self.logger.info('Data base size is updated to:%s',self.DB_LENGTH )
 
     def connect2Target(self,tu_address):
         self.logger.debug('creating socket connection to %s' , tu_address)
