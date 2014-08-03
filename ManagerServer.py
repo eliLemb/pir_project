@@ -4,6 +4,7 @@ import threading
 import queue
 import random
 import time
+import pickle 
 
 from tkinter import *
 from tkinter import ttk
@@ -24,7 +25,7 @@ q_freeIndexs = queue.Queue()
 active_servers = {}
 codes = OpCodes()
 WELCOME_PORT = 31100    
-
+file_savedDB = "bitArray_DB"
 #T stands for threaded
 class T_ManagerRequestHandler(ThreadedRequestHandler):
     lock = RLock()
@@ -250,8 +251,10 @@ class ManagerServer(PIRServerBasic):
         self.genarateDB()
         appWindownManager.disableBtnStartServer()
         appWindownManager.enableBtnStopServer()
+        
         t_managerServer.setDaemon(True)
         t_cleanDeadServers.setDaemon(True)
+        
         t_managerServer.start()
         t_cleanDeadServers.start()
 
@@ -309,8 +312,13 @@ class ManagerServer(PIRServerBasic):
         return PIRServerBasic.shutdown(self)
    
     def genarateDB(self):
-        self.b_DB = BitArray(hex(random.getrandbits(self.dbLengthMB *self.c_MB)))
         
+        # open the file for writing
+        fileObject = open(file_savedDB,'wb') 
+        
+        self.b_DB = BitArray(hex(random.getrandbits(self.dbLengthMB *self.c_MB)))
+        pickle.dump(self.b_DB.bin,fileObject)
+        fileObject.close()
       
 
 class SM_window(Frame):
@@ -387,7 +395,7 @@ class SM_window(Frame):
         self.btn_stopServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickStopServer, image=self.icn_stopServer, style='TButton', text="Stop Server ",width=button_width )
         self.btn_stopServer.grid(row=1,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
-        self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
+        self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.displayQueryClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
         self.btn_query.grid(row=2,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
         
         self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.removeConnectedServerIcon, image=self.icn_write, style='TButton', text="Write DB to File ",width=button_width )
@@ -458,7 +466,7 @@ class SM_window(Frame):
         try:
             self.canvas.delete(self.l_serversConectedIcons.pop())
         except:
-            self.o_serverManager.logger.debug('Label remove failed')
+            self.logger.debug('Label remove failed')
     
     def enableBtnStopServer(self):
         self.btn_stopServer.state(["!disabled"])   # Enable the stop button.
@@ -478,9 +486,9 @@ class SM_window(Frame):
     def clientOffline(self):
         self.lbl_userSts.config(image=self.icn_userOffline)
     
-    def buttonClick(self):      
-        pass
-    
+    def displayQueryClick(self):   
+        self.txt_scrolledConsole.insert(INSERT,str(len(self.o_serverManager.lastReceivedQuery)) + "\t")   
+        self.txt_scrolledConsole.insert(INSERT,self.o_serverManager.lastReceivedQuery + "\n")
     def clickExit(self): 
         try:
             self.o_serverManager.shutdown()

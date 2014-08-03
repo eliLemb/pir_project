@@ -101,6 +101,7 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     def handleQuery(self,msg):
         queryPayload = bin(int(msg))
         self.logger.info("Query is: %s", int(queryPayload,2))
+        self.server.lastReceivedQuery = str(queryPayload)
         queryPayloadResponse = self.calacPIRResponse(queryPayload)
         self.assambleQueryResponse(queryPayloadResponse)
         self.request.send(self.frameBuilder.getFrame())
@@ -126,7 +127,7 @@ class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
     b_DB = BitArray()
     c_MB = 2**20
     logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
-
+    lastReceivedQuery = "None"
     def __init__(self, log_name,server_address, handler_class=ThreadedRequestHandler):
         self.logger = logging.getLogger(log_name)
         self.logger.debug('__init__')
