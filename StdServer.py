@@ -125,6 +125,8 @@ class StdServer(PIRServerBasic):
         t_stdServer.start()
         t_KeepAlive.start()
         
+#         self.loadDBFromFile()
+        
         appWindownManager.disableBtnStartServer()
         appWindownManager.enableBtnStopServer()
         
@@ -177,8 +179,6 @@ class StdServer(PIRServerBasic):
         self.frameBuilder.assembleFrame(codes.getValue('hello')[0], '0' + ":" + '0')
         self.logger.debug('sending ''servers_failed'' to Manager_Server')
         s_openToManager.send(bytes(self.frameBuilder.getFrame()))
-
-
 
 
 
@@ -238,7 +238,7 @@ class STD_window(Frame):
         self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
         self.btn_query.grid(row=3,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
         
-        self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_write, style='TButton', text="Write DB to File ",width=button_width )
+        self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.loadClick, image=self.icn_write, style='TButton', text="DB From File ",width=button_width )
         self.btn_write.grid(row=4,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
         self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
@@ -293,6 +293,9 @@ class STD_window(Frame):
     def updateWelcomePort(self,event):
         StdServer.WELCOME_PORT = int(self.cb_listenPort.get())
 #         print(int(self.cb_listenPort.get()))
+    
+    def loadClick(self):
+        pass
     
     def buttonClick(self):      
         pass

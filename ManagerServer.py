@@ -19,13 +19,13 @@ from threading import RLock
 from bitstring import BitArray
 from StdServer import StdServer
 import socketserver
-
+import os
+import os.path
 q_freeIndexs = queue.Queue()
 # logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
 active_servers = {}
 codes = OpCodes()
 WELCOME_PORT = 31100    
-file_savedDB = "bitArray_DB"
 #T stands for threaded
 class T_ManagerRequestHandler(ThreadedRequestHandler):
     lock = RLock()
@@ -114,7 +114,7 @@ class T_ManagerRequestHandler(ThreadedRequestHandler):
 #         self.server.addClient(self.client_address)
         
         super(T_ManagerRequestHandler,self).handleClientConnection(msg)
-        appWindownManager.writeToScrolledConsole(msg)
+#         appWindownManager.writeToScrolledConsole(msg)
         appWindownManager.clientOnline()
 #         self.b_isClientConnected=True
 #         self.request.send(bytes(msg,"utf-8"))
@@ -248,7 +248,7 @@ class ManagerServer(PIRServerBasic):
         self.addServer2ActiveServers(self.tup_socket)
         t_managerServer = threading.Thread(target=self.serve_forever)
         t_cleanDeadServers = threading.Thread(target = self.check4DeadServer)
-        self.genarateDB()
+#         self.genarateDB()
         appWindownManager.disableBtnStartServer()
         appWindownManager.enableBtnStopServer()
         
@@ -312,15 +312,17 @@ class ManagerServer(PIRServerBasic):
         return PIRServerBasic.shutdown(self)
    
     def genarateDB(self):
-        
-        # open the file for writing
-        fileObject = open(file_savedDB,'wb') 
-        
-        self.b_DB = BitArray(hex(random.getrandbits(self.dbLengthMB *self.c_MB)))
+         
+        # open the file for writing our DB
+        fileObject = open(self.file_savedDB,'wb') 
+#         self.b_DB = BitArray(hex(random.getrandbits(self.dbLengthMB *self.c_MB)))
+        self.b_DB = BitArray(hex(random.getrandbits(16384)))
         pickle.dump(self.b_DB.bin,fileObject)
         fileObject.close()
-      
+        
+    
 
+        
 class SM_window(Frame):
     o_serverManager=None
     def __init__(self, parent):
@@ -398,9 +400,9 @@ class SM_window(Frame):
         self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.displayQueryClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
         self.btn_query.grid(row=2,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
         
-        self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.removeConnectedServerIcon, image=self.icn_write, style='TButton', text="Write DB to File ",width=button_width )
+        self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.writeDB2File, image=self.icn_write, style='TButton', text="Create new DB",width=button_width)
         self.btn_write.grid(row=3,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
-        
+
         self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
         self.btn_exit.grid(row=4,column=1, columnspan=5, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
@@ -464,7 +466,7 @@ class SM_window(Frame):
     
     def removeConnectedServerIcon(self):
         try:
-            self.canvas.delete(self.l_serversConectedIcons.pop())
+            self.cnvs_connectedServersIcons.delete(self.l_serversConectedIcons.pop())
         except:
             self.logger.debug('Label remove failed')
     
@@ -497,7 +499,9 @@ class SM_window(Frame):
             
             self.myParent.destroy()     
 
-
+    def writeDB2File(self):
+        self.o_serverManager.genarateDB()
+        
     def writeToScrolledConsole(self,msg):
         pass
 #         self.txt_scrolledConsole.insert( str(msg))

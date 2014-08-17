@@ -3,6 +3,7 @@
 import logging
 import socketserver
 import time
+import pickle 
 
 import threading
 import socket
@@ -12,6 +13,9 @@ from threading import RLock
 from OpCodes import OpCodes
 from FrameBuilder import FrameBuilder
 from bitstring import BitArray
+from os.path import os
+import pickle 
+from PIRQueryObject import PIRQueryObject
 
 
 codes = OpCodes()
@@ -32,8 +36,8 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
         return
     
-    def setDB(self,cpy_DB):
-        self.b_DB = cpy_DB
+#     def setDB(self,cpy_DB):
+#         self.b_DB = cpy_DB
         
     def setup(self):
         self.logger.debug('setup')
@@ -44,24 +48,46 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         while True:
         # Echo the back to the client
             try:
-                data = self.request.recv(2)
+                data = self.request.recv(2) ##Read opcode and the size of length
                 if data == '' or len(data) == 0:
                     break
             except Exception: 
-                self.logger.debug('recv failed')
+                self.logger.debug('recv failed opcode and num bytes of Length')
                 break
             #Got data Successfully
             recvOpcode = data[0] #first byte is op code
-            size = data[1]
+            lengthOfSize = data[1]
+            try:
+                data = self.request.recv(lengthOfSize)
+                if data == '' or len(data) == 0:
+                    break
+            except Exception: 
+                self.logger.debug('recv data failed size')
+                break
+            size = int.from_bytes(data,byteorder='big') 
             try:
                 data = self.request.recv(size)
                 if data == '' or len(data) == 0:
                     break
             except Exception: 
-                self.logger.debug('recv data failed')
+                self.logger.debug('recv data failed payload')
                 break
+             
             payload = data
-            self.handleMsg(recvOpcode,bytes.decode(payload))
+            if(recvOpcode == 242):
+#                 self.logger.info("Pickle query: %s  type: %s",payload,type(payload))
+                self.handleMsg(recvOpcode,payload)
+                
+            else:
+                self.handleMsg(recvOpcode,bytes.decode(payload))
+#                 flags = 0
+#                 try:
+#                     data = self.request.recv() ##Read opcode and the size of length
+#                 except Exception: 
+#                     self.logger.debug('recv failed opcode and num bytes of Length')
+#                     break
+#                 msgFromSocket = pickle.loads(data)
+#                 self.handleMsg(msgFromSocket[0],msgFromSocket[1])
                 
 #             try:
 #                 self.logger.debug('recv()->"%s"', payload)
@@ -99,9 +125,10 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     
     
     def handleQuery(self,msg):
-        queryPayload = bin(int(msg))
-        self.logger.info("Query is: %s", int(queryPayload,2))
+        queryPayload = pickle.loads(msg)
+#         self.logger.info("Query is: %s", int(queryPayload,2))
         self.server.lastReceivedQuery = str(queryPayload)
+        self.logger.info("Recieved query: %s",queryPayload)
         queryPayloadResponse = self.calacPIRResponse(queryPayload)
         self.assambleQueryResponse(queryPayloadResponse)
         self.request.send(self.frameBuilder.getFrame())
@@ -113,24 +140,34 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         
     ##### PIR algorithm comes here    
     def calacPIRResponse(self,data):
-        return int(data,2)<<1 
+        return self.server.pirQuery.decryptQuery(data)
+        
+#         return int(data,2)<<1 
     
     
         
 class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
+    import os
+    import os.path
+    os.path
     lock = RLock()
     active_client = {}
     HELLO_INTERVAL = 20
     TIME_TO_LIVE = 45
     frameBuilder = FrameBuilder()
     dbLengthMB = 2
-    b_DB = BitArray()
+    
     c_MB = 2**20
     logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   
     lastReceivedQuery = "None"
     def __init__(self, log_name,server_address, handler_class=ThreadedRequestHandler):
         self.logger = logging.getLogger(log_name)
         self.logger.debug('__init__')
+        self.file_savedDB = "bitArray_DB"
+        self.b_DB = BitArray()
+        self.loadDB()
+        
+        
         socketserver.TCPServer.__init__(self, server_address, handler_class)
         return
       
@@ -188,7 +225,22 @@ class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
         self.active_client[self.active_client.__len__()] = (clientAddres,int(time.time()%1000000))
         self.lock.release()
     
+    def loadDB(self):
+        PATH="./" + self.file_savedDB
+        if os.path.isfile(PATH):
+            self.logger.info( "DB File exists and is loaded")
+            with open(self.file_savedDB,'rb') as fileObject:
+                self.b_DB = BitArray(bin = pickle.load(fileObject))
+                self.pirQuery = PIRQueryObject(1, self.b_DB.len)
+                self.pirQuery.setDB(self.b_DB)
+#             fileObject.close()
+        else:
+            self.logger.info("Either file is missing or is not readable")
+        # open the file for writing our DB
         
+        
+        
+   
     def getDBLength(self):
         return self.b_DB._getlength()
 #         tup_socket = (ipAddress, port) # let the kernel give us a port, tuple of the address and port
