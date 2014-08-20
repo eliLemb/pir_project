@@ -519,7 +519,7 @@ class PIRClient():
         self.verifyServersAlive()
         for serverIndex in range(0,active_servers.__len__()):
             queryAsString = pickle.dumps(queriesToSend[serverIndex])
-            self.logger.info("Pickle query: %s  type: %s",queryAsString,type(queryAsString))
+#             self.logger.info("Pickle query: %s  type: %s",queryAsString,type(queryAsString))
             serversPool.put((active_servers[serverIndex][2],queryAsString))
             
     
@@ -544,7 +544,7 @@ class PIRClient():
             worker.start()
 #             worker.join()
         serversPool.join()
-        self.logger.info("All threads returned")
+#         self.logger.info("All threads returned")
         if(serversQueryReply.__len__() == active_servers.__len__()):
             self.logger.info("All servers replied to the query")
             
@@ -655,7 +655,9 @@ class PIRClient():
 #             self.logger.info('%s Fetching socket from to queue ',threading.currentThread().getName())
             (targetSocket,query2Send) = serversPool.get(True)
             self.logger.info("length of query to send %d",len(query2Send))
+#             self.lock.acquire(blocking=True)
             t_frameBuilder.assembleFrame(codes.getValue('pir_query')[0],query2Send)
+#             self.lock.release()
             targetSocket.send(t_frameBuilder.getFrame())
             self.readSocketForResponse(targetSocket)
 #             self.sendAndHandleResponse(targetSocket)

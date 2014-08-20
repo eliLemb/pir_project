@@ -45,8 +45,8 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
     
     def handle(self):
         self.logger.debug('handle')
+        
         while True:
-        # Echo the back to the client
             try:
                 data = self.request.recv(2) ##Read opcode and the size of length
                 if data == '' or len(data) == 0:
@@ -64,23 +64,58 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
             except Exception: 
                 self.logger.debug('recv data failed size')
                 break
-            size = int.from_bytes(data,byteorder='big') 
-            try:
-                data = self.request.recv(size)
-                if data == '' or len(data) == 0:
-                    break
-            except Exception: 
-                self.logger.debug('recv data failed payload')
-                break
-             
-            payload = data
+            remaining = int.from_bytes(data,byteorder='big') 
+            payload = bytearray()
+            chunkSize = 512
+            while remaining > 0:
+                chunk = self.request.recv(chunkSize)    # Get available data
+                payload.extend(chunk)            # Add to message
+                remaining -= len(chunk)  
+            
             if(recvOpcode == 242):
 #                 self.logger.info("Pickle query: %s  type: %s",payload,type(payload))
-                self.handleMsg(recvOpcode,payload)
-                
+                self.handleMsg(recvOpcode,payload)  
             else:
-                self.handleMsg(recvOpcode,bytes.decode(payload))
-#                 flags = 0
+                self.handleMsg(recvOpcode,bytearray.decode(payload)) 
+            
+#         while True:
+#         # Echo the back to the client
+#             try:
+#                 data = self.request.recv(2) ##Read opcode and the size of length
+#                 if data == '' or len(data) == 0:
+#                     break
+#             except Exception: 
+#                 self.logger.debug('recv failed opcode and num bytes of Length')
+#                 break
+#             #Got data Successfully
+#             recvOpcode = data[0] #first byte is op code
+#             lengthOfSize = data[1]
+#             try:
+#                 data = self.request.recv(lengthOfSize)
+#                 if data == '' or len(data) == 0:
+#                     break
+#             except Exception: 
+#                 self.logger.debug('recv data failed size')
+#                 break
+#             size = int.from_bytes(data,byteorder='big') 
+#             try:
+#                 if(recvOpcode == 242):
+#                     time.sleep(1)
+#                 data = self.request.recv(size)
+#                 if data == '' or len(data) == 0:
+#                     break
+#             except Exception: 
+#                 self.logger.debug('recv data failed payload')
+#                 break
+#              
+#             payload = data
+#             if(recvOpcode == 242):
+# #                 self.logger.info("Pickle query: %s  type: %s",payload,type(payload))
+#                 self.handleMsg(recvOpcode,payload)
+#                 
+#             else:
+#                 self.handleMsg(recvOpcode,bytes.decode(payload))
+# #                 flags = 0
 #                 try:
 #                     data = self.request.recv() ##Read opcode and the size of length
 #                 except Exception: 
@@ -128,7 +163,7 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
         queryPayload = pickle.loads(msg)
 #         self.logger.info("Query is: %s", int(queryPayload,2))
         self.server.lastReceivedQuery = str(queryPayload)
-        self.logger.info("Recieved query: %s",queryPayload)
+#         self.logger.info("Recieved query: %s",queryPayload)
         queryPayloadResponse = self.calacPIRResponse(queryPayload)
         self.assambleQueryResponse(queryPayloadResponse)
         self.request.send(self.frameBuilder.getFrame())
@@ -155,7 +190,7 @@ class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
     HELLO_INTERVAL = 20
     TIME_TO_LIVE = 45
     frameBuilder = FrameBuilder()
-    dbLengthMB = 2
+    dbLengthMB = 1
     
     c_MB = 2**20
     logging.basicConfig(level=logging.DEBUG,format='%(name)s: %(message)s',)   

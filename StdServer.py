@@ -89,15 +89,19 @@ class T_StdRequestHandler(ThreadedRequestHandler):
 
 class StdServer(PIRServerBasic):
     managerServerAddresPort = ('192.168.4.1',31100)
+    
     WELCOME_PORT = 31101    
     
     def __init__(self, log_name, handler_class=T_StdRequestHandler):
-        self.selfIPAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+#         self.selfIPAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        hostname = socket.gethostname()
+        self.selfIPAddress = socket.gethostbyname(hostname)
         self.tup_socket = (self.selfIPAddress, self.WELCOME_PORT) # let the kernel give us a port, tuple of the address and port
 #         self.selfIPAddress = server_address[0]
 #         self.selfPort = server_address[1]
         self.toKillKeepAliveThread = True
         self.log_name = log_name
+        self.managerServerAddresPort = (appWindownManager.getSMIPAdressFromEntry(),31100)
         return PIRServerBasic.__init__(self, log_name, self.tup_socket, handler_class=handler_class)
     
     def server_activate(self):
@@ -221,36 +225,46 @@ class STD_window(Frame):
         self.icn_userOnline = ImageTk.PhotoImage(file="icons/UserOnline.png")
         self.icn_userOffline = ImageTk.PhotoImage(file="icons/UserOffline.png")
         
-
-        self.cb_listenPort = ttk.Combobox(self.masterFrame, textvariable=StdServer.WELCOME_PORT, style='TCombobox')
+        self.lbl_SMAddress = ttk.Label(self.masterFrame, compound=LEFT, style='TLabel', text="Manager\nServer IP:",justify=CENTER)
+        self.lbl_SMAddress.grid(row=0,column=0, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        
+        self.lbl_SMAddress = ttk.Label(self.masterFrame, compound=LEFT, style='TLabel', text="Welcome\nport:" ,justify=CENTER)
+        self.lbl_SMAddress.grid(row=0,column=1, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        
+        
+        self.txt_SMAddress = ttk.Entry(self.masterFrame, justify=CENTER, width=button_width)
+        self.txt_SMAddress.insert(0, '192.168.4.1')
+        self.txt_SMAddress.grid(row=1, column=0,  ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        
+        self.cb_listenPort = ttk.Combobox(self.masterFrame, textvariable=StdServer.WELCOME_PORT, style='TCombobox',width = 5)
         self.cb_listenPort.bind('<<ComboboxSelected>>', self.updateWelcomePort)
         self.cb_listenPort['values'] = ('31101', '31102', '31103', '31104', '31105', '31106', '31107', '31108', '31109', '31110')
         self.cb_listenPort.set('31101')
-        self.cb_listenPort.grid(row=0,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        self.cb_listenPort.grid(row=1,column=1, columnspan=1,ipadx=button_padx, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
         
         self.btn_startServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.startUp, image=self.icn_startServer, style='TButton', text="Start Server ",width=button_width )
-        self.btn_startServer.grid(row=1,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
+        self.btn_startServer.grid(row=2,column=0, ipadx=button_padx, columnspan=2, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
         
         self.btn_stopServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.stopServer, image=self.icn_stopServer, style='TButton', text="Stop Server ",width=button_width )
-        self.btn_stopServer.grid(row=2,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        self.btn_stopServer.grid(row=3,column=0, ipadx=button_padx, columnspan=2, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
         self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.buttonClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
-        self.btn_query.grid(row=3,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
+        self.btn_query.grid(row=4,column=0, ipadx=button_padx, columnspan=2, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
         
         self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.loadClick, image=self.icn_write, style='TButton', text="DB From File ",width=button_width )
-        self.btn_write.grid(row=4,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        self.btn_write.grid(row=5,column=0, ipadx=button_padx, columnspan=2, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
         self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
-        self.btn_exit.grid(row=5,column=1, columnspan=5, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        self.btn_exit.grid(row=6,column=0, columnspan=2, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
         
 
         self.sp_bottom = ttk.Separator(self.masterFrame,orient=HORIZONTAL)
-        self.sp_bottom.grid(row=6,column=0 ,columnspan=11, pady=5, sticky=(E, W))
+        self.sp_bottom.grid(row=7,column=0 ,columnspan=3, pady=5, sticky=(E, W))
  
         
         self.lbl_userSts = Label(self.masterFrame, image=self.icn_userOffline)
-        self.lbl_userSts.grid(row=7, column=5, sticky=(E))
+        self.lbl_userSts.grid(row=8, column=1, sticky=(E))
         self.disableBtnStopServer()
 #         self.addConnectedServerIcon(1)
 #         self.addConnectedServerIcon(2)
@@ -267,7 +281,9 @@ class STD_window(Frame):
             messagebox.showinfo("Server Error", "Server start-up failed.\nTry selecting different port.")
             
         
-        
+    def getSMIPAdressFromEntry(self):
+        return self.txt_SMAddress.get() 
+     
     def stopServer(self):
         self.o_standardServer.shutdown()
         self.o_standardServer.server_close()

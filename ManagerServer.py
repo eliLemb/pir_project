@@ -233,7 +233,9 @@ class ManagerServer(PIRServerBasic):
     
     
     def __init__(self, log_name, handler_class=T_ManagerRequestHandler):
-        ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+#         ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
+        hostname = socket.gethostname()
+        ipAddress = socket.gethostbyname(hostname)
         self.tup_socket = (ipAddress, WELCOME_PORT) # let the kernel give us a port, tuple of the address and port
         self.log_name = log_name
         return PIRServerBasic.__init__(self, log_name, self.tup_socket, handler_class=handler_class)
@@ -315,11 +317,12 @@ class ManagerServer(PIRServerBasic):
          
         # open the file for writing our DB
         fileObject = open(self.file_savedDB,'wb') 
-#         self.b_DB = BitArray(hex(random.getrandbits(self.dbLengthMB *self.c_MB)))
-        self.b_DB = BitArray(hex(random.getrandbits(16384)))
+        requstedSizeOfDBMB = appWindownManager.getDBSizeFromTxtInput()
+        self.b_DB = BitArray(hex(random.getrandbits(requstedSizeOfDBMB *self.c_MB)))
+#         self.b_DB = BitArray(hex(random.getrandbits(requstedSizeOfDBMB)))
         pickle.dump(self.b_DB.bin,fileObject)
         fileObject.close()
-        
+        self.loadDB()
     
 
         
@@ -330,7 +333,9 @@ class SM_window(Frame):
         self.myParent.title('PIR Manager Server')
         ### Our topmost frame is called myContainer1
         self.masterFrame = ttk.Frame(self.myParent,padding=(0,10,0,5)) ###
+        self.o_serverManager = ManagerServer('Manager_Server', T_ManagerRequestHandler) 
         self.masterFrame.grid(column=0, row=0, sticky=(N, S, E, W))
+        
         self.l_serversConectedIcons=[]
         
         self.rowCounter = 1
@@ -390,34 +395,40 @@ class SM_window(Frame):
         # left_frame        
 #         self.left_frame = Frame(self.top_frame) ###
 #         self.left_frame.pack(side=LEFT,anchor=W,fill=Y)  ###
+        self.lbl_dbSize = ttk.Label(self.masterFrame, compound=LEFT, style='TLabel', text="Data Base size:",justify=LEFT)
+        self.lbl_dbSize.grid(row=0,column=0, columnspan=2, sticky=(W))
+        
+        self.txt_dbSize = ttk.Entry(self.masterFrame, justify=CENTER, width=button_width)
+        self.txt_dbSize.insert(0, self.o_serverManager.getDBLength())
+        self.txt_dbSize.grid(row=0, column=1, columnspan=2, sticky=(E))
         
         self.btn_startServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickStartUp, image=self.icn_startServer, style='TButton', text="Start Server ",width=button_width )
-        self.btn_startServer.grid(row=0,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
+        self.btn_startServer.grid(row=1,column=1, ipadx=button_padx, columnspan=5, padx=buttons_frame_padx, sticky=(N))    
         
         self.btn_stopServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickStopServer, image=self.icn_stopServer, style='TButton', text="Stop Server ",width=button_width )
-        self.btn_stopServer.grid(row=1,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        self.btn_stopServer.grid(row=2,column=1, ipadx=button_padx, columnspan=5,padx=buttons_frame_padx, sticky=(N))
         
         self.btn_query = ttk.Button(self.masterFrame, compound=RIGHT, command=self.displayQueryClick, image=self.icn_query, style='TButton', text="Query ",width=button_width )
-        self.btn_query.grid(row=2,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))    
+        self.btn_query.grid(row=3,column=1, ipadx=button_padx, columnspan=5,padx=buttons_frame_padx, sticky=(N))    
         
         self.btn_write = ttk.Button(self.masterFrame, compound=RIGHT, command=self.writeDB2File, image=self.icn_write, style='TButton', text="Create new DB",width=button_width)
-        self.btn_write.grid(row=3,column=1, ipadx=button_padx, columnspan=5, ipady=button_pady,padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        self.btn_write.grid(row=4,column=1, ipadx=button_padx, columnspan=5,padx=buttons_frame_padx, sticky=(N))
 
         self.btn_exit = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickExit, image=self.icn_exit, style='TButton', text="Exit ",width=button_width )
-        self.btn_exit.grid(row=4,column=1, columnspan=5, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(N))
+        self.btn_exit.grid(row=5,column=1, columnspan=5, ipadx=button_padx, padx=buttons_frame_padx, sticky=(N))
         
         self.txt_scrolledConsole = ScrolledText(self.masterFrame, wrap=WORD, undo=True, setgrid=True)
-        self.txt_scrolledConsole.grid(row=0,column=6, columnspan=1, rowspan=5, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W))
+        self.txt_scrolledConsole.grid(row=0,column=6, columnspan=1, rowspan=6, ipadx=button_padx, padx=buttons_frame_padx, sticky=(W))
         
         self.cnvs_connectedServersIcons = Canvas(self.masterFrame,width=160, height=32)
-        self.cnvs_connectedServersIcons.grid(row=6, column=self.l_serversConectedIcons.__len__()+1)
+        self.cnvs_connectedServersIcons.grid(row=7, column=self.l_serversConectedIcons.__len__()+1)
         
         ### right_frame z
 #         self.right_frame = Frame(self.top_frame)
 #         self.right_frame.pack(side=RIGHT,anchor=E)  ###
 
         self.sp_bottom = ttk.Separator(self.masterFrame,orient=HORIZONTAL)
-        self.sp_bottom.grid(row=5,column=0 ,columnspan=11, pady=5, sticky=(E, W))
+        self.sp_bottom.grid(row=6,column=0 ,columnspan=11, pady=5, sticky=(E, W))
         # now we add the buttons to the buttons_frame    
 #         self.button1 = Button(self.masterFrame, command=self.button1Click,text="OK",width=button_width)
 #         self.button1.configure(text="OK")
@@ -432,7 +443,7 @@ class SM_window(Frame):
         
         
         self.lbl_userSts = Label(self.masterFrame, image=self.icn_userOffline)
-        self.lbl_userSts.grid(row=6, column=6, sticky=(E))
+        self.lbl_userSts.grid(row=7, column=6, sticky=(E))
         self.disableBtnStopServer()
 #         self.addConnectedServerIcon(1)
 #         self.addConnectedServerIcon(2)
@@ -442,7 +453,7 @@ class SM_window(Frame):
 
     def clickStartUp(self):
 #         ipAddress = [(s.connect(('192.168.4.138', 80)), s.getsockname()[0], s.close()) for s in [socket.socket(socket.AF_INET, socket.SOCK_DGRAM)]][0][1]
-        self.o_serverManager = ManagerServer('Manager_Server', T_ManagerRequestHandler) 
+        
         self.o_serverManager.activate()
         
     def clickStopServer(self):
@@ -468,7 +479,7 @@ class SM_window(Frame):
         try:
             self.cnvs_connectedServersIcons.delete(self.l_serversConectedIcons.pop())
         except:
-            self.logger.debug('Label remove failed')
+            self.o_serverManager.logger.debug('Label remove failed')
     
     def enableBtnStopServer(self):
         self.btn_stopServer.state(["!disabled"])   # Enable the stop button.
@@ -496,11 +507,13 @@ class SM_window(Frame):
             self.o_serverManager.shutdown()
             self.o_serverManager.server_close()
         finally:
-            
             self.myParent.destroy()     
-
+    
     def writeDB2File(self):
         self.o_serverManager.genarateDB()
+    
+    def getDBSizeFromTxtInput(self):
+        return int(self.txt_dbSize.get())
         
     def writeToScrolledConsole(self,msg):
         pass

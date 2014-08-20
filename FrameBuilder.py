@@ -18,7 +18,9 @@ class FrameBuilder(object):
         self.logger = logging.getLogger("Frame Builder ")
     def assembleFrame (self,opCode,payload):
         try:
-            self.frame2Send.clear()
+#             self.frame2Send.clear()
+            self.frame2Send = bytearray()
+
             self.frame2Send.append(opCode)
             numOfBytesOfLength = math.ceil((len(payload).bit_length()/8))
             self.frame2Send.append(numOfBytesOfLength)   ##Number of bits of the length number

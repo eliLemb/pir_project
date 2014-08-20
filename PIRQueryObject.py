@@ -73,7 +73,7 @@ class PIRQueryObject():
         for _ in range (1,2**(self.currentServersQuantity-1)):
             tempCw = BitArray(os.urandom((int)(math.sqrt(self.DB_LENGTH)/8)))
             self.CWListPool.append(tempCw)
-        self.logger.info("size of CWlist: %d",self.CWListPool.__len__())            
+#         self.logger.info("size of CWlist: %d",self.CWListPool.__len__())            
         
         
     def createForcedTIndicator(self,aTempIndicatorList,aAmountOfCwToCreate):
@@ -104,7 +104,7 @@ class PIRQueryObject():
         matrix = []
 #         numRows
         numOfRows = 2**self.currentServersQuantity
-        self.logger.info("current Servers Quantity = %d" ,self.currentServersQuantity)
+#         self.logger.info("current Servers Quantity = %d" ,self.currentServersQuantity)
         for index in range (0,numOfRows):
             matrix.append([int(d) for d in bin(index)[2:].zfill(self.currentServersQuantity)])
         #   self.logger.info(matrix)
@@ -125,7 +125,7 @@ class PIRQueryObject():
         rootedDatabaseSizeVar = (int)(math.sqrt(self.DB_LENGTH))
         self.unitVectorJAsBytes = BitArray(int = 1, length = rootedDatabaseSizeVar)
         self.unitVectorJAsBytes <<= ((rootedDatabaseSizeVar-1) - self.transformedColumnIndex)
-        self.logger.info (self.unitVectorJAsBytes.bin)
+#         self.logger.info (self.unitVectorJAsBytes.bin)
 
 
     def inflatorFunction(self,aSeedToInflate):
@@ -301,15 +301,15 @@ class PIRQueryObject():
         listOfGFunction = self.createGFunctions(seedListToInflate)
     #     print("from server     seed list size:",seedListToInflate.__len__(),"g fun list size",listOfGFunction.__len__(),"indicators list size",indicatorsList.__len__())
     #     print("forcedIndicator:",indicatorsList[1])
-        self.logger.info("listOfGFunction - server side: %s",listOfGFunction)
+#         self.logger.info("listOfGFunction - server side: %s",listOfGFunction)
     #     print("list indicators - server side:",indicatorsList)
     #     print("cw list ",cwList)
         listOfGfuncionXorCwList = self.GfuncionXorCwListFunction(listOfGFunction,indicatorsList,cwList)
         zVector = self.createZVector(listOfGfuncionXorCwList)#return a vector of length n
         response = self.createRespone(zVector)
-        self.f = open("zVector", 'ab+')
-        pickle.dump(zVector.hex, self.f)
-        self.f.close()
+#         self.f = open("zVector", 'ab+')
+#         pickle.dump(zVector.hex, self.f)
+#         self.f.close()
 #         self.logger.info("server z vector: %s",zVector.hex)
     #     print("response:" ,response)
         return response
