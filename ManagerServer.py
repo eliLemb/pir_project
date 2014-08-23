@@ -18,6 +18,7 @@ from PIRServerBasic import ThreadedRequestHandler
 from threading import RLock
 from bitstring import BitArray
 from StdServer import StdServer
+import math
 import socketserver
 import os
 import os.path
@@ -318,7 +319,7 @@ class ManagerServer(PIRServerBasic):
         # open the file for writing our DB
         fileObject = open(self.file_savedDB,'wb') 
         requstedSizeOfDBMB = appWindownManager.getDBSizeFromTxtInput()
-        self.b_DB = BitArray(hex(random.getrandbits(requstedSizeOfDBMB *self.c_MB)))
+        self.b_DB = BitArray(os.urandom(requstedSizeOfDBMB *(math.ceil((self.c_MB/8)))))
 #         self.b_DB = BitArray(hex(random.getrandbits(requstedSizeOfDBMB)))
         pickle.dump(self.b_DB.bin,fileObject)
         fileObject.close()
@@ -399,7 +400,7 @@ class SM_window(Frame):
         self.lbl_dbSize.grid(row=0,column=0, columnspan=2, sticky=(W))
         
         self.txt_dbSize = ttk.Entry(self.masterFrame, justify=CENTER, width=button_width)
-        self.txt_dbSize.insert(0, self.o_serverManager.getDBLength())
+        self.txt_dbSize.insert(0, self.o_serverManager.getDBLength()/self.o_serverManager.c_MB)
         self.txt_dbSize.grid(row=0, column=1, columnspan=2, sticky=(E))
         
         self.btn_startServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickStartUp, image=self.icn_startServer, style='TButton', text="Start Server ",width=button_width )
