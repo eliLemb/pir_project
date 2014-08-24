@@ -401,7 +401,7 @@ class SM_window(Frame):
         
         self.txt_dbSize = ttk.Entry(self.masterFrame, justify=CENTER, width=button_width)
         self.txt_dbSize.insert(0, self.o_serverManager.getDBLength()/self.o_serverManager.c_MB)
-        self.txt_dbSize.grid(row=0, column=1, columnspan=2, sticky=(E))
+        self.txt_dbSize.grid(row=0, column=1, columnspan=5, sticky=(E))
         
         self.btn_startServer = ttk.Button(self.masterFrame, compound=RIGHT, command=self.clickStartUp, image=self.icn_startServer, style='TButton', text="Start Server ",width=button_width )
         self.btn_startServer.grid(row=1,column=1, ipadx=button_padx, columnspan=5, padx=buttons_frame_padx, sticky=(N))    
@@ -421,8 +421,8 @@ class SM_window(Frame):
         self.txt_scrolledConsole = ScrolledText(self.masterFrame, wrap=WORD, undo=True, setgrid=True)
         self.txt_scrolledConsole.grid(row=0,column=6, columnspan=1, rowspan=6, ipadx=button_padx, padx=buttons_frame_padx, sticky=(W))
         
-        self.cnvs_connectedServersIcons = Canvas(self.masterFrame,width=160, height=32)
-        self.cnvs_connectedServersIcons.grid(row=7, column=self.l_serversConectedIcons.__len__()+1)
+        self.cnvs_connectedServersIcons = Canvas(self.masterFrame,width=330, height=32)
+        self.cnvs_connectedServersIcons.grid(row=7, columnspan=10,column=self.l_serversConectedIcons.__len__()+1,sticky=(W))
         
         ### right_frame z
 #         self.right_frame = Frame(self.top_frame)

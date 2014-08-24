@@ -166,6 +166,7 @@ class ThreadedRequestHandler(socketserver.BaseRequestHandler):
 #         self.logger.info("Recieved query: %s",queryPayload)
         queryPayloadResponse = self.calacPIRResponse(queryPayload)
         self.assambleQueryResponse(queryPayloadResponse)
+        self.logger.info("PIR response sent to Client")
         self.request.send(self.frameBuilder.getFrame())
     
     
@@ -263,10 +264,11 @@ class PIRServerBasic(socketserver.ThreadingMixIn,socketserver.TCPServer):
     def loadDB(self):
         PATH="./" + self.file_savedDB
         if os.path.isfile(PATH):
-            self.logger.info( "DB File exists and is loaded")
+            self.logger.info( "DB File found, loading")
             with open(self.file_savedDB,'rb') as fileObject:
                 self.b_DB = BitArray(bin = pickle.load(fileObject))
                 self.pirQuery = PIRQueryObject(1, self.b_DB.len)
+                self.logger.info( "DB fully loaded")
                 self.pirQuery.setDB(self.b_DB)
 #             fileObject.close()
         else:
