@@ -174,7 +174,7 @@ class PIRQueryObject():
 
 
         
-    def assamblePIRQuery(self,aSeedsList,aListOfGFuncion,aTIndicatorsList):
+    def assamblePIRQuery(self,aSeedsList,aTIndicatorsList):
         
 #         self.serversQuery
         rootedDatabaseSizeVar = (int)(math.sqrt(self.DB_LENGTH))
@@ -214,7 +214,7 @@ class PIRQueryObject():
             if importantSectionIndicator == 1:# when we in a section that is not important we have an array of 2^(k-1) seeds, and we need to add another seed to be modular
                 tempSeedListPerSection.insert(0,0xFF)
             else:#important section
-                tempGFunctionPerSection = aListOfGFuncion[startIndex:endIndex]
+                tempGFunctionPerSection = self.createGFunctions(tempSeedListPerSection)
                 self.findKthCW(tempGFunctionPerSection)
     #         self.logger.info("choosing matrix ",choosingMatrix,"section number:",sectionIndex+1)
     #         self.logger.info("list for a section",tempSeedListPerSection) 
@@ -240,12 +240,13 @@ class PIRQueryObject():
         self.bitToExtractIndex   = aBitToExtractIndex
         self.buildMatrices()
         seedList            = self.createRandomSeeds()
-        listOfGFuncion      = self.createGFunctions(seedList)
+#         listOfGFuncion      = self.createGFunctions(seedList)
         self.transformIndexBit()
         self.createCWListPool()
         listOfIndicators    = self.createTIndicatorsPool()
         self.createEjVector()
-        self.assamblePIRQuery(seedList,listOfGFuncion,listOfIndicators)
+#         self.assamblePIRQuery(seedList,listOfGFuncion,listOfIndicators)
+        self.assamblePIRQuery(seedList,listOfIndicators)
         self.finaleServersQueries = self.appendCWListPoolToQuery()
 #         self.calacQuerySize()
         return self.finaleServersQueries     
@@ -285,10 +286,11 @@ class PIRQueryObject():
 
     def createRespone(self,aZVector):
 #     print("db size and z vector:",aB_DB.length,aZVector.length)
-        tempAnswer = 0
-        for bitFromDB,bitFromZVector in zip(self.b_DB,aZVector):
-            tempAnswer = tempAnswer + bitFromDB*bitFromZVector
-        answer = tempAnswer%2    
+        tempAnswer = self.b_DB & aZVector
+        answer = (tempAnswer.count(1))%2  
+#         for bitFromDB,bitFromZVector in zip(self.b_DB,aZVector):
+#             tempAnswer = tempAnswer + bitFromDB*bitFromZVector
+          
         return answer
 
 
