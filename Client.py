@@ -100,17 +100,17 @@ class client_window(Frame):
         self.lbl_connectionSts = Label(self.masterFrame, image=self.icn_SM_disconnected)
         self.lbl_connectionSts.grid(row=2, column=7, sticky=(E))
         
-        self.chk_pir = ttk.Radiobutton(self.masterFrame, text='PIR', variable=self.queryMethod, value=1)
-        self.chk_pir.grid(row=3,column=0,columnspan=2, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W, S))
-        self.chk_pir.state(['selected'])
-        self.queryMethod.set(1)
+#         self.chk_pir = ttk.Radiobutton(self.masterFrame, text='PIR', variable=self.queryMethod, value=1)
+#         self.chk_pir.grid(row=3,column=0,columnspan=2, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W, S))
+#         self.chk_pir.state(['selected'])
+#         self.queryMethod.set(1)
         
-        self.chk_regular = ttk.Radiobutton(self.masterFrame, text='Standard', variable=self.queryMethod, value=2)
-        self.chk_regular.grid(row=4,column=0,columnspan=2, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W, S))
-        
+#         self.chk_regular = ttk.Radiobutton(self.masterFrame, text='Standard', variable=self.queryMethod, value=2)
+#         self.chk_regular.grid(row=4,column=0,columnspan=2, ipadx=button_padx, ipady=button_pady, padx=buttons_frame_padx, pady=buttons_frame_ipady, sticky=(W, S))
+#         
         
         self.lbl_numOfServersDsc = ttk.Label(self.masterFrame, compound=LEFT, text="Amount of\nActive servers:" )
-        self.lbl_numOfServersDsc.grid(row=3,column=1, columnspan=7, rowspan=2, sticky=(W))
+        self.lbl_numOfServersDsc.grid(row=3,column=0, columnspan=7, rowspan=2, sticky=(W))
 #         self.lbl_numOfServersDsc.config(text = "bllablabalbalbla")
 
         self.lbl_numOfServers = ttk.Label(self.masterFrame, compound=LEFT, style='TLabel', text="0" )
@@ -180,13 +180,8 @@ class client_window(Frame):
         self.scl_bitChoice.configure(to=valueToUpdate)    
     
     def clickQuery(self):
-        if self.queryMethod.get()==1:
-            self.logger.info("PIR radio selected")
-            self.pirClient.executeQuery()
+        self.pirClient.executeQuery()
 
-        elif self.queryMethod.get()==2:
-            self.logger.info("Regular radio selected")
-            self.generateRegQuery()
             
     def writeResultToLabel(self,aResultToWrite):
         self.lbl_result.configure(text=aResultToWrite,justify=LEFT)  
